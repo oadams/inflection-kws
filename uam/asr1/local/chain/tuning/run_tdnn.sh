@@ -29,7 +29,7 @@ stage=0
 nj=30
 train_set=train_cleaned
 gmm=tri5_cleaned  # the gmm for the target data
-langdir=data/langp/tri5_ali
+langdir=data/lang_universalp/tri5_ali
 num_threads_ubm=12
 nnet3_affix=_cleaned  # cleanup affix for nnet3 and chain dirs, e.g. _cleaned
 
