@@ -111,17 +111,16 @@ def prepare_test_ivectors(test_set, ivector_extractor_dir, args, env):
           "--nj", str(args.nj),
           tmp_data_dir, ivector_extractor_dir, ivector_dir], check=True)
 
-def prepare_decode(args, env):
-    """ Prepares decoding data. """
+def mkgraph(test_set):
+    """ Prepare the HCLG.fst graph that is used in decoding. """
 
-    # TODO call ./utils.mkgraph.sh to make HCLG.fst.
+    lang_dir = f"data/{test_set}/data/lang_universal"
+    model_dir = f"exp/chain_cleaned/tdnn_sp"
+    graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang"
+    args = ["./utils/mkgraph.sh", lang_dir, model_dir, graph_dir]
+    run(args, check=True)
 
-    # Prepare MFCCs and CMVN stats.
-    prepare_test_feats("404_test", args, env)
-    # Prepare ivectors
-    prepare_test_ivectors("404_test", "exp/nnet3_cleaned/extractor", args, env)
-
-def decode(test_set):
+def decode(test_set, env):
     """Decode the test set.
 
     This actually means creating lattices, not utterance-level transcripts.
@@ -137,10 +136,13 @@ def decode(test_set):
 
     # The directory that contains
     decode_dir = f"exp/chain_cleaned/tdnn_sp/decode_{test_set}"
-    run(["./steps/nnet3/decode.sh",
+    args = ["./steps/nnet3/decode.sh",
+        "--cmd", env["decode_cmd"],
         "--online-ivector-dir", f"exp/nnet3_cleaned/ivectors_{test_set}_hires",
         "--post-decode-acwt", "10.0",
-        graph_dir, data_dir, decode_dir], check=True)
+        graph_dir, data_dir, decode_dir]
+    print(args)
+    run(args, check=True)
 
 def prepare_kws():
     """ Establish KWS lists and ground truth."""
@@ -161,7 +163,10 @@ def runcheck(*args, **kwargs):
     subprocesses raise an exception.
     """
     kwargs["check"] = True
-    subprocess.run(*args, **kwargs)
+    try:
+        subprocess.run(*args, **kwargs)
+    except subprocess.CalledProcessError as e:
+        print("")
 
 if __name__ == "__main__":
     args = get_args()
@@ -169,9 +174,17 @@ if __name__ == "__main__":
     env = source("cmd.sh")
 
     # The cores steps in the pipeline.
-    prepare_train()
-    train()
-    prepare_decode()
-    decode("404_test")
-    prepare_kws()
-    kws()
+    #prepare_train()
+    #train()
+
+    ##### Preparing decoding #####
+    # Make HCLG.fst.
+    #mkgraph("404_test")
+    # Prepare MFCCs and CMVN stats.
+    #prepare_test_feats(test_set, args, env)
+    # Prepare ivectors
+    #prepare_test_ivectors(test_set, "exp/nnet3_cleaned/extractor", args, env)
+
+    decode("404_test", env)
+    #prepare_kws()
+    #kws()
