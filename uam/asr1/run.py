@@ -210,17 +210,6 @@ def kws():
                    data/lang data/$dir $system$                                             
     """
 
-def runcheck(*args, **kwargs):
-    """
-    Wrapper to subprocess.run that calls it with check=True so that failed
-    subprocesses raise an exception.
-    """
-    kwargs["check"] = True
-    try:
-        subprocess.run(*args, **kwargs)
-    except subprocess.CalledProcessError as e:
-        print("")
-
 if __name__ == "__main__":
     args = get_args()
     # TODO Source path.sh and conf/lang.conf as well.
