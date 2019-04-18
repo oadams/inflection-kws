@@ -23,13 +23,24 @@ import sys
 # redirect the output of subprocesses into a logfile, versus when to write my
 # own log statements.
 
-def source(source_fn):
-    """ Reads from environment variables after sourcing a filename."""
-    # NOTE Maybe I should just store relevant variables in a Python file. An
-    # argument against that is that some scripts will expect path.sh, cmd.sh
-    # and conf/lang.conf to have been sourced.
+def source(source_fns):
+    """Parses environment variables after sourcing a list of files via Bash.
 
-    proc = subprocess.Popen(['bash', '-c', 'source {} && env'.format(source_fn)],
+    Kaldi recipes commonly use files that define lots of environment variables
+    in them, such as cmd.sh, path.sh, lang.conf. This script accepts a list of
+    the names of such files, sources them via a call to bash, and then parses
+    all the environment variables, allowing the python environment to have
+    access to the same variables.
+    """
+    # NOTE Maybe relevant variables should just be stored in a Python file. An
+    # argument against that is that some scripts that we will call will expect
+    # path.sh, cmd.sh and conf/lang.conf to exist anyway. For now development
+    # of this recipe should involve as little unnecessary meddling with the
+    # course of Kaldi as possible until deeper understanding of the true
+    # reality of nature is attained.
+
+    proc = subprocess.Popen(['bash', '-c', " ".join([f'source {source_fn}; ' for source_fn
+                                                     in source_fns] + ["env"])],
                             stdout=subprocess.PIPE)
     keysvals = [line.decode("utf-8").strip().split('=') for line in proc.stdout
              if len(str(line).strip().split('=')) == 2]
@@ -37,9 +48,13 @@ def source(source_fn):
     return source_env
 
 def get_args():
+    """Parse commandline arguments"""
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--nj", type=int, default=30,
+    parser.add_argument("--feat_extract_nj", type=int, default=30,
                         help="Number of jobs to run for feature extraction.")
+    parser.add_argument("--decode_nj", type=int, default=12,
+                        help="Number of jobs to run for decoding.")
     args = parser.parse_args()
     return args
 
@@ -78,7 +93,7 @@ def prepare_test_feats(test_set, args, env):
     mfcc_dir = f"{hires_dir}/data"
     # Prepare 43-dimensional MFCC/pitch features.
     run(["steps/make_mfcc_pitch_online.sh",
-         "--nj", str(args.nj),
+         "--nj", str(args.feat_extract_nj),
          "--mfcc-config", "conf/mfcc_hires.conf",
          "--cmd", env["train_cmd"],
          hires_dir, log_dir, mfcc_dir],
@@ -108,7 +123,7 @@ def prepare_test_ivectors(test_set, ivector_extractor_dir, args, env):
          nopitch_dir, tmp_data_dir], check=True)
     run(["steps/online/nnet2/extract_ivectors_online.sh",
           "--cmd", env["train_cmd"],
-          "--nj", str(args.nj),
+          "--nj", str(args.feat_extract_nj),
           tmp_data_dir, ivector_extractor_dir, ivector_dir], check=True)
 
 def mkgraph(test_set):
@@ -117,10 +132,14 @@ def mkgraph(test_set):
     lang_dir = f"data/{test_set}/data/lang_universal"
     model_dir = f"exp/chain_cleaned/tdnn_sp"
     graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang"
-    args = ["./utils/mkgraph.sh", lang_dir, model_dir, graph_dir]
+    args = ["./utils/mkgraph.sh",
+            # For chain models, we need to set the self-loop scale to 1.0. See
+            # http://kaldi-asr.org/doc/chain.html#chain_decoding for details.
+            "--self-loop-scale", "1.0",
+            lang_dir, model_dir, graph_dir]
     run(args, check=True)
 
-def decode(test_set, env):
+def decode(test_set, args, env):
     """Decode the test set.
 
     This actually means creating lattices, not utterance-level transcripts.
@@ -136,12 +155,19 @@ def decode(test_set, env):
 
     # The directory that contains
     decode_dir = f"exp/chain_cleaned/tdnn_sp/decode_{test_set}"
+
     args = ["./steps/nnet3/decode.sh",
         "--cmd", env["decode_cmd"],
+        "--nj", str(args.decode_nj),
         "--online-ivector-dir", f"exp/nnet3_cleaned/ivectors_{test_set}_hires",
+        # We're using chain models, so we adjust the acoustic
+        # weight (acwt) to be close to optimal. We also scale the acoustic
+        # probabilities by 10 before dumping the lattice (post-decode-acwt) to make
+        # it match LM scales. See
+        # http://kaldi-asr.org/doc/chain.html#chain_decoding for details.
+        "--acwt", "1.0",
         "--post-decode-acwt", "10.0",
         graph_dir, data_dir, decode_dir]
-    print(args)
     run(args, check=True)
 
 def prepare_kws():
@@ -151,11 +177,38 @@ def prepare_kws():
     pass
 
 def kws():
-    """ Run keyword search. """
+    """ Run keyword search.
 
-    # TODO Create inverted index
+        See kaldi/egs/babel/s5d/local/search/run_search.sh for more details.
+    """
 
-    # Get scores.
+    # TODO Keyword set processing
+    # This will set up the basic files and converts the F4DE files into
+    # Kaldi-native format
+    """
+    local/search/setup.sh $my_ecf_file $my_rttm_file  "${my_kwlist}" \
+      data/$dir/ data/lang/ data/$dir/kwset_${set}$                   
+    args = ["local/search/setup.sh",
+            ecf_file, rttm_file, kwlist,
+
+    ecf_file = "/export/babel/data/scoring/IndusDB/IARPA-babel206b-v0.1e_conv-dev/IARPA-babel206b-v0.1e_conv-dev.scoring.ecf.xml"
+
+
+    # Below does the indexing and keyword seaching.
+
+    # From local/run_kws_stt_task2.sh
+    local/search/search.sh --cmd "$cmd"  --extraid ${extraid} --model
+    $decode_dir/../final.mdl\
+        --max-states ${max_states} --min-lmwt ${min_lmwt} --max-lmwt
+        ${max_lmwt} \$            
+            --indices-dir $decode_dir/phones/kws_indices --skip-scoring
+            $skip_scoring \$           
+    # From kaldi/egs/babel/s5d/local/search/run_search.sh
+     local/search/search.sh --cmd "$decode_cmd" --min-lmwt 9 --max-lmwt 12
+     \$  
+            --extraid ${set} --indices-dir $system/kws_indices \$                    
+                   data/lang data/$dir $system$                                             
+    """
 
 def runcheck(*args, **kwargs):
     """
@@ -179,12 +232,12 @@ if __name__ == "__main__":
 
     ##### Preparing decoding #####
     # Make HCLG.fst.
-    #mkgraph("404_test")
+    mkgraph("404_test")
     # Prepare MFCCs and CMVN stats.
     #prepare_test_feats(test_set, args, env)
     # Prepare ivectors
     #prepare_test_ivectors(test_set, "exp/nnet3_cleaned/extractor", args, env)
 
-    decode("404_test", env)
+    decode("404_test", args, env)
     #prepare_kws()
     #kws()
