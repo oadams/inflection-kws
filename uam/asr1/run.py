@@ -15,6 +15,7 @@
 
 import argparse
 import os
+from pathlib import Path
 import subprocess
 from subprocess import run
 import sys
@@ -40,7 +41,7 @@ def source(source_fns):
     # reality of nature is attained.
 
     proc = subprocess.Popen(['bash', '-c', " ".join([f'source {source_fn}; ' for source_fn
-                                                     in source_fns] + ["env"])],
+                                                     in source_fns] + ["set -o posix; set"])],
                             stdout=subprocess.PIPE)
     keysvals = [line.decode("utf-8").strip().split('=') for line in proc.stdout
              if len(str(line).strip().split('=')) == 2]
@@ -167,16 +168,43 @@ def decode(test_set, args, env):
         # http://kaldi-asr.org/doc/chain.html#chain_decoding for details.
         "--acwt", "1.0",
         "--post-decode-acwt", "10.0",
+        # We really want to just get the lattices, we can do KWS scoring
+        # separately in another function. (steps/nnet3/decode.sh calls
+        # local/score.sh by default, which in this case would run KWS)
+
+        "--skip-scoring", "true",
         graph_dir, data_dir, decode_dir]
     run(args, check=True)
 
-def prepare_kws():
+def prepare_kws(lang):
     """ Establish KWS lists and ground truth."""
 
     # TODO Fill this in when I move beyond the standard babel sets.
-    pass
 
-def kws():
+    # NOTE For now I'm assuming we're using official Babel KWS gear.
+    # Flag that decides whether to use the full language pack (FLP) or the
+    # limited language pack (LLP)
+
+    # Create the conf file.
+    # NOTE actually I'll just copy these conf files.
+    """
+    args = ["./local/nist_eval/create_new_language_configs.{'FLP' if flp else 'LLP'}.sh",
+            # TODO This is hardcoded to Georgian and will break everything
+            # unless fixed.
+            "--language", "404-georgian",
+            "--corpus", "/export/babel/data",
+            "--indus", "/export/babel/data/scoring/IndusDB"]
+    """
+
+    flp = False
+    # Link the relevant Babel conf for the language.
+    babel_egs_path = Path("conf/lang")
+    for path in babel_egs_path.glob(f"{lang}*FLP*" if flp else f"{lang}*LLP*"):
+        print(path)
+        babel_env = source([str(path)])
+    print(babel_env)
+
+def kws(lang):
     """ Run keyword search.
 
         See kaldi/egs/babel/s5d/local/search/run_search.sh for more details.
@@ -192,6 +220,7 @@ def kws():
             ecf_file, rttm_file, kwlist,
 
     ecf_file = "/export/babel/data/scoring/IndusDB/IARPA-babel206b-v0.1e_conv-dev/IARPA-babel206b-v0.1e_conv-dev.scoring.ecf.xml"
+
 
 
     # Below does the indexing and keyword seaching.
@@ -213,7 +242,7 @@ def kws():
 if __name__ == "__main__":
     args = get_args()
     # TODO Source path.sh and conf/lang.conf as well.
-    env = source("cmd.sh")
+    env = source(["cmd.sh"])
 
     # The cores steps in the pipeline.
     #prepare_train()
@@ -221,12 +250,12 @@ if __name__ == "__main__":
 
     ##### Preparing decoding #####
     # Make HCLG.fst.
-    mkgraph("404_test")
+    #mkgraph("404_test")
     # Prepare MFCCs and CMVN stats.
     #prepare_test_feats(test_set, args, env)
     # Prepare ivectors
     #prepare_test_ivectors(test_set, "exp/nnet3_cleaned/extractor", args, env)
 
-    decode("404_test", args, env)
-    #prepare_kws()
-    #kws()
+    #decode("404_test", args, env)
+    prepare_kws("404")
+    #kws("404")
