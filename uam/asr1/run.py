@@ -184,25 +184,47 @@ def prepare_kws(lang):
     # NOTE For now I'm assuming we're using official Babel KWS gear.
     # Flag that decides whether to use the full language pack (FLP) or the
     # limited language pack (LLP)
-
-    # Create the conf file.
-    # NOTE actually I'll just copy these conf files.
-    """
-    args = ["./local/nist_eval/create_new_language_configs.{'FLP' if flp else 'LLP'}.sh",
-            # TODO This is hardcoded to Georgian and will break everything
-            # unless fixed.
-            "--language", "404-georgian",
-            "--corpus", "/export/babel/data",
-            "--indus", "/export/babel/data/scoring/IndusDB"]
-    """
-
     flp = False
     # Link the relevant Babel conf for the language.
     babel_egs_path = Path("conf/lang")
     for path in babel_egs_path.glob(f"{lang}*FLP*" if flp else f"{lang}*LLP*"):
-        print(path)
         babel_env = source([str(path)])
-    print(babel_env)
+    print(babel_env["dev10h_rttm_file"])
+    print(babel_env["dev10h_ecf_file"])
+
+
+    # TODO Remove hardcoding and make a common reference to dev10h for all
+    # functions in this script
+    rttm_file = babel_env["dev10h_rttm_file"]
+    ecf_file = babel_env["dev10h_ecf_file"]
+    kwlist_file = "/export/babel/data/scoring/IndusDB/IARPA-babel404b-v1.0a_conv-dev/IARPA-babel404b-v1.0a_conv-dev.annot.kwlist3.xml"
+    lang_dir = f"data/{lang}_test/data/lang_universal"
+    data_dir = f"data/{lang}_test/data/dev10h.pem"
+    args = ["local/kws_setup.sh",
+            "--rttm-file", rttm_file,
+            "--case-insensitive", "false",
+            ecf_file, kwlist_file, lang_dir, data_dir]
+    run(args, check=True)
+
+"""
+help_message="$0: Initialize and setup the KWS task directory$                           
+Usage:$                                                                                  
+       $0  <ecf_file> <kwlist-file> [rttm-file] <lang-dir> <data-dir>$                   
+allowed switches:$                                                                       
+      --subset-ecf /path/to/filelist     # The script will subset the ecf file$          
+                                         # to contain only the files from the filelist$  
+      --rttm-file /path/to/rttm          # the preferred way how to specify the rttm$    
+                                         # the older way (as an in-line parameter is$    
+                                         # obsolete and will be removed in near future$  
+      --case-insensitive <true|false>      # Shall we be case-sensitive or not?$         
+                                         # Please not the case-sensitivness depends$     
+                                         # on the shell locale!$                         
+      --annotate <true|false>$                                                           
+      --use-icu <true|false>           # Use the ICU uconv binary to normalize casing$   
+      --icu-transform <string>           # When using ICU, use this transliteration$     
+      --kwlist-wordlist                  # The file with the list of words is not an xml$
+"""
+
 
 def kws(lang):
     """ Run keyword search.
