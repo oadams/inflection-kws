@@ -65,7 +65,7 @@ if ! $skip_stt ; then
     if ! $skip_scoring ; then
       local/score_stm.sh --cmd "$cmd"  --cer $cer \
         --min-lmwt ${min_lmwt} --max-lmwt ${max_lmwt}\
-        --model $model \
+        --model $model --wip $wip \
         $data_dir $lang_dir $decode_dir
     fi
     touch $decode_dir/.done.score

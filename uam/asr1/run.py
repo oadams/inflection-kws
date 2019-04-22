@@ -206,31 +206,37 @@ def prepare_kws(lang):
             ecf_file, kwlist_file, lang_dir, data_dir]
     run(args, check=True)
 
-"""
-help_message="$0: Initialize and setup the KWS task directory$                           
-Usage:$                                                                                  
-       $0  <ecf_file> <kwlist-file> [rttm-file] <lang-dir> <data-dir>$                   
-allowed switches:$                                                                       
-      --subset-ecf /path/to/filelist     # The script will subset the ecf file$          
-                                         # to contain only the files from the filelist$  
-      --rttm-file /path/to/rttm          # the preferred way how to specify the rttm$    
-                                         # the older way (as an in-line parameter is$    
-                                         # obsolete and will be removed in near future$  
-      --case-insensitive <true|false>      # Shall we be case-sensitive or not?$         
-                                         # Please not the case-sensitivness depends$     
-                                         # on the shell locale!$                         
-      --annotate <true|false>$                                                           
-      --use-icu <true|false>           # Use the ICU uconv binary to normalize casing$   
-      --icu-transform <string>           # When using ICU, use this transliteration$     
-      --kwlist-wordlist                  # The file with the list of words is not an xml$
-"""
 
-
-def kws(lang):
+def kws(lang, env):
     """ Run keyword search.
 
         See kaldi/egs/babel/s5d/local/search/run_search.sh for more details.
     """
+
+    lang_dir = f"data/{lang}_test/data/lang_universal"
+    data_dir = f"data/{lang}_test/data/dev10h.pem"
+    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{lang}_decode_test"
+    cmd = "utils/queue.pl --mem 10G"
+
+    args = ["./local/kws_search.sh",
+            "--cmd", cmd,
+            # I do not know what these optional arguments do.
+            #"--max-states",
+            #"--min-lmwt",
+            #"--max-lmwt",
+            #"--skip-scoring",
+            #"--indices-dir",
+            "--stage", "1",
+            lang_dir, data_dir, decode_dir]
+
+    run(args, check=True)
+
+# http://kaldi-asr.org/doc/kws.html says to call this like so:
+# local/kws_search.sh --cmd "$cmd" \
+#   --max-states ${max_states} --min-lmwt ${min_lmwt} \
+#   --max-lmwt ${max_lmwt} --skip-scoring $skip_scoring \
+#   --indices-dir $decode_dir/kws_indices $lang_dir $data_dir $decode_dir
+
 
     # TODO Keyword set processing
     # This will set up the basic files and converts the F4DE files into
@@ -242,8 +248,6 @@ def kws(lang):
             ecf_file, rttm_file, kwlist,
 
     ecf_file = "/export/babel/data/scoring/IndusDB/IARPA-babel206b-v0.1e_conv-dev/IARPA-babel206b-v0.1e_conv-dev.scoring.ecf.xml"
-
-
 
     # Below does the indexing and keyword seaching.
 
@@ -279,5 +283,5 @@ if __name__ == "__main__":
     #prepare_test_ivectors(test_set, "exp/nnet3_cleaned/extractor", args, env)
 
     #decode("404_test", args, env)
-    prepare_kws("404")
-    #kws("404")
+    #prepare_kws("404")
+    kws("404", env)
