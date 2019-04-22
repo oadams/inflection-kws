@@ -8,9 +8,13 @@
         - Preparing multilingual bottleneck features
         - Creating a HCLG.fst for decoding.
         - Running decoding to get lattices.
+        - Preparing KWS data
+        - Performing KWS
 
     If you want to do it all with sensible default settings, just call this
     script.
+
+    Note it's a work in progress.
 """
 
 import argparse
@@ -236,51 +240,17 @@ def kws(lang, env):
     decode_dir =  f"exp/chain_cleaned/tdnn_sp/{lang}_decode_test"
     cmd = "utils/queue.pl --mem 10G"
 
+    # NOTE Need to rm .done.index if I need to re-run indexing. Actually, in
+    # general for all these functions I should take a kwarg flag that asks to
+    # redo it all from scratch.
     args = ["./local/search/search.sh",
             "--cmd", cmd,
             # I do not know what these optional arguments do.
             #"--max-states",
             #"--min-lmwt",
             #"--max-lmwt",
-            #"--skip-scoring",
-            #"--indices-dir",
             lang_dir, data_dir, decode_dir]
     run(args, check=True)
-
-
-# http://kaldi-asr.org/doc/kws.html says to call this like so:
-# local/kws_search.sh --cmd "$cmd" \
-#   --max-states ${max_states} --min-lmwt ${min_lmwt} \
-#   --max-lmwt ${max_lmwt} --skip-scoring $skip_scoring \
-#   --indices-dir $decode_dir/kws_indices $lang_dir $data_dir $decode_dir
-
-
-    # TODO Keyword set processing
-    # This will set up the basic files and converts the F4DE files into
-    # Kaldi-native format
-    """
-    local/search/setup.sh $my_ecf_file $my_rttm_file  "${my_kwlist}" \
-      data/$dir/ data/lang/ data/$dir/kwset_${set}$                   
-    args = ["local/search/setup.sh",
-            ecf_file, rttm_file, kwlist,
-
-    ecf_file = "/export/babel/data/scoring/IndusDB/IARPA-babel206b-v0.1e_conv-dev/IARPA-babel206b-v0.1e_conv-dev.scoring.ecf.xml"
-
-    # Below does the indexing and keyword seaching.
-
-    # From local/run_kws_stt_task2.sh
-    local/search/search.sh --cmd "$cmd"  --extraid ${extraid} --model
-    $decode_dir/../final.mdl\
-        --max-states ${max_states} --min-lmwt ${min_lmwt} --max-lmwt
-        ${max_lmwt} \$            
-            --indices-dir $decode_dir/phones/kws_indices --skip-scoring
-            $skip_scoring \$           
-    # From kaldi/egs/babel/s5d/local/search/run_search.sh
-     local/search/search.sh --cmd "$decode_cmd" --min-lmwt 9 --max-lmwt 12
-     \$  
-            --extraid ${set} --indices-dir $system/kws_indices \$                    
-                   data/lang data/$dir $system$                                             
-    """
 
 if __name__ == "__main__":
     args = get_args()
