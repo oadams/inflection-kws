@@ -9,9 +9,11 @@ utt_table=
 # End configuration section
 echo $0 "$@"
 . ./utils/parse_options.sh || exit 1;
+[ -f ./path.sh ] && . ./path.sh; # source the path.
 
 set -e -o pipefail
 set -o nounset                              # Treat unset variables as an error
+
 
 if [ $# -ne 5 ] ; then
   echo "Usage: <rttm-file> <kwlist-file> <ecf-file> <word-dir> <output-file>"
@@ -24,6 +26,7 @@ ecf=$3
 workdir=$4
 output=$5
 
+
 for f in $rttm $kwlist $ecf ; do
   [ ! -f $f ] && echo "File \"$f\" does not exist." && exit 1
 done
@@ -35,6 +38,7 @@ mkdir -p $workdir
   echo '</kwslist>'
 } > $workdir/kwslist.xml
 
+
 kwseval=`which KWSEval`
 if [ -z "$kwseval" ] ; then
   echo >&2 "KWSEval from F4DE tools not found"
@@ -45,6 +49,7 @@ fi
   set -x
   $kwseval -c -r $rttm -e $ecf -t $kwlist -s $workdir/kwslist.xml -f $workdir/
 )
+
 
 grep -E ",,MISS" $workdir/alignment.csv | \
   perl -e '

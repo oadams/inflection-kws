@@ -10,3 +10,6 @@ export PATH=$PWD/utils/:$KALDI_ROOT/tools/openfst/bin:$KALDI_ROOT/tools/sph2pipe
 . $KALDI_ROOT/tools/config/common_path.sh
 
 export LC_ALL=C
+
+cpanm --local-lib=~/perl5 local::lib && eval $(perl -I ~/perl5/lib/perl5/ -Mlocal::lib)
+export PATH=$PATH:/export/b13/oadams/kws/tools/F4DE-3.5.0/bin

@@ -209,10 +209,21 @@ def prepare_kws(lang):
             ecf_file,
             rttm_file,
             kwlist_file, data_dir, lang_dir, out_dir]
-    try:
-        run(args, check=True)
-    except subprocess.CalledProcessError as e:
-        print(e.stderr)
+    run(args, check=True)
+
+    # Now to compile keywords
+    args = ["local/search/compile_keywords.sh",
+            "--filter", "OOV=0&&Characters>2",
+            # TODO this will also have to generalize to multiple kws sets too.
+            out_dir, lang_dir, f"{out_dir}/tmp.2"]
+            #out_dir, lang_dir, out_dir]
+    run(args, check=True)
+
+    # Aggregate the keywords from different lists into one FST.
+    #for set in ${kwsets[@]} ; do$                                       
+    #      fsts-union scp:<(sort data/$dir/kwset_${set}/tmp*/keywords.scp) \$
+    #          ark,t:"|gzip -c >data/$dir/kwset_${set}/keywords.fsts.gz"$      
+
 
 def kws(lang, env):
     """ Run keyword search.
@@ -233,7 +244,6 @@ def kws(lang, env):
             #"--max-lmwt",
             #"--skip-scoring",
             #"--indices-dir",
-            "--stage", "1",
             lang_dir, data_dir, decode_dir]
     run(args, check=True)
 
