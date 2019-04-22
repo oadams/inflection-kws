@@ -220,9 +220,9 @@ def prepare_kws(lang):
     run(args, check=True)
 
     # Aggregate the keywords from different lists into one FST.
-    #for set in ${kwsets[@]} ; do$                                       
-    #      fsts-union scp:<(sort data/$dir/kwset_${set}/tmp*/keywords.scp) \$
-    #          ark,t:"|gzip -c >data/$dir/kwset_${set}/keywords.fsts.gz"$      
+    run(f"sort {out_dir}/tmp.2/keywords.scp > {out_dir}/tmp.2/keywords.sorted.scp", shell=True)
+    run(f"fsts-union scp:{out_dir}/tmp.2/keywords.sorted.scp ark,t:\"|gzip -c >{out_dir}/keywords.fsts.gz\"", shell=True, check=True)
+    
 
 
 def kws(lang, env):
