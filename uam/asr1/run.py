@@ -197,15 +197,22 @@ def prepare_kws(lang):
     # functions in this script
     rttm_file = babel_env["dev10h_rttm_file"]
     ecf_file = babel_env["dev10h_ecf_file"]
+    # TODO We'll want to make this more than just KWS list 3.. this will
+    # require data/404_test/data/dev10h.pem/kws to become kws_kwlist{1,2,3,4},
+    # like in the babel/s5d script.
     kwlist_file = "/export/babel/data/scoring/IndusDB/IARPA-babel404b-v1.0a_conv-dev/IARPA-babel404b-v1.0a_conv-dev.annot.kwlist3.xml"
     lang_dir = f"data/{lang}_test/data/lang_universal"
     data_dir = f"data/{lang}_test/data/dev10h.pem"
-    args = ["local/kws_setup.sh",
-            "--rttm-file", rttm_file,
-            "--case-insensitive", "false",
-            ecf_file, kwlist_file, lang_dir, data_dir]
-    run(args, check=True)
-
+    # TODO this will also have to generalize to multiple kws sets too.
+    out_dir = f"{data_dir}/kws"
+    args = ["local/search/setup.sh",
+            ecf_file,
+            rttm_file,
+            kwlist_file, data_dir, lang_dir, out_dir]
+    try:
+        run(args, check=True)
+    except subprocess.CalledProcessError as e:
+        print(e.stderr)
 
 def kws(lang, env):
     """ Run keyword search.
@@ -218,7 +225,7 @@ def kws(lang, env):
     decode_dir =  f"exp/chain_cleaned/tdnn_sp/{lang}_decode_test"
     cmd = "utils/queue.pl --mem 10G"
 
-    args = ["./local/kws_search.sh",
+    args = ["./local/search/search.sh",
             "--cmd", cmd,
             # I do not know what these optional arguments do.
             #"--max-states",
@@ -228,8 +235,8 @@ def kws(lang, env):
             #"--indices-dir",
             "--stage", "1",
             lang_dir, data_dir, decode_dir]
-
     run(args, check=True)
+
 
 # http://kaldi-asr.org/doc/kws.html says to call this like so:
 # local/kws_search.sh --cmd "$cmd" \
