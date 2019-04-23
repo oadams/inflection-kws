@@ -26,7 +26,7 @@ cwd=$(utils/make_absolute.sh `pwd`)
 echo "Stage 0: Setup Language Specific Directories"
 
 echo " --------------------------------------------"
-echo "Languagues: ${langs}"
+echo "Languages: ${langs}"
 
 # Basic directory prep
 for l in ${langs} ${recog2}; do
@@ -103,6 +103,7 @@ done
 
 # Prepare recog data
 for l in ${recog2}; do
+    echo "Recog language: $l"
   (
     cd data/${l}
     l=${l%%_test}
@@ -124,5 +125,5 @@ for l in ${recog2}; do
     
     
     cd ${cwd}
-  ) &
+  )
 done

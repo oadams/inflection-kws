@@ -65,12 +65,23 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def prepare_train():
-    """ Prepares training data. """
+def prepare_train(train_langs, recog_langs):
+    """Prepares training data.
 
-    # ./run.sh calls ./local/setup_languages.sh and ./local/get_alignments.sh
-    # with appropriate environment variables set.
-    args = ["./run.sh"]
+       train_langs is the set of languages that the acoustic model is to be
+       trained on. recog_langs is the set of languages that we want to
+       recognize. Language models get trained on these languages.
+    """
+
+    # Prepare the training data/{lang} directories fore each lang. Also trains
+    # the language models for the recog_langs.
+    args = ["./local/setup_languages.sh",
+            "--langs", " ".join(train_langs),
+            "--recog", " ".join(recog_langs)]
+    run(args, check=True)
+
+    # HMM-GMM training to get alignments between audio and text.
+    args = ["./local/get_alignments.sh"]
     run(args, check=True)
 
     # Re-segment training data to select only the audio that matches the
@@ -83,11 +94,17 @@ def prepare_train():
     # and couldn't find anything.
 
 def train():
-    """ Trains a model. """
+    """Trains a model. """
 
     # TODO call ./local/chain/run_tdnn.sh
     args = ["./local/chain/run_tdnn.sh"]
     run(args, check=True)
+
+def adapt():
+    """Adapts an existing acoustic model to data in another language."""
+
+    # TODO Read Matthew's recipe and implement:
+    # /export/b09/mwiesner/LORELEI/tools/kaldi/egs/sinhala/s5/local/adapt_tdnn.sh
 
 def prepare_test_feats(test_set, args, env):
     """ Prepares the test features by extracting MFCCs and ivectors."""
@@ -296,8 +313,20 @@ if __name__ == "__main__":
     # TODO Source path.sh and conf/lang.conf as well.
     env = source(["cmd.sh"])
 
+    # TODO Use a mapping from ISO 639-3 codes to Babel lang codes for
+    # readability.
+    # This is a set of most of the babel languages, except for 4 held-out
+    # cases.
+    train_langs = ["101", "102", "103", "104", "105", "106",
+                   "202", "203", "204", "205", "206", "207",
+                   "301", "302", "303", "304", "305", "306",
+                   "401", "402", "403"]
+    # NOTE We prepare pronunciation lexicons and LMS for the languages below,
+    # but don't use acoustic data.
+    #recog_langs = train_langs + ["107", "201", "307", "404"]
+    recog_langs = ["206"]
     # The cores steps in the pipeline.
-    #prepare_train()
+    #prepare_train(train_langs, recog_langs)
     #train()
 
     ##### Preparing decoding #####
@@ -311,4 +340,4 @@ if __name__ == "__main__":
     #decode("404_test", args, env)
     #prepare_kws("404")
     #kws("404", env)
-    wer_score("404", env)
+    #wer_score("404", env)
