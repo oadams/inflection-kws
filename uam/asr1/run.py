@@ -65,16 +65,18 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def prepare_training():
+def prepare_train():
     """ Prepares training data. """
 
-    # TODO call ./local/setup_languages.sh with appropriate environment
-    # variables set. See run.sh
+    # ./run.sh calls ./local/setup_languages.sh and ./local/get_alignments.sh
+    # with appropriate environment variables set.
+    args = ["./run.sh"]
+    run(args, check=True)
 
-    # TODO call ./local/get_alignments.sh with appropriate environment
-    # variables set. See run.sh
-
-    # TODO call ./local/run_cleanup_segmentation.sh
+    # Re-segment training data to select only the audio that matches the
+    # transcripts.
+    args = ["./local/run_cleanup_segmentation.sh"]
+    run(args, check=True)
 
     # TODO Talk to Matthew about using 100-lang bottlneck features. I looked in
     # /export/b09/mwiesner/LORELEI/tasks/uam/asr1_99langs/local/prepare_recog.sh
@@ -84,6 +86,8 @@ def train():
     """ Trains a model. """
 
     # TODO call ./local/chain/run_tdnn.sh
+    args = ["./local/chain/run_tdnn.sh"]
+    run(args, check=True)
 
 def prepare_test_feats(test_set, args, env):
     """ Prepares the test features by extracting MFCCs and ivectors."""
@@ -134,7 +138,26 @@ def prepare_test_ivectors(test_set, ivector_extractor_dir, args, env):
           tmp_data_dir, ivector_extractor_dir, ivector_dir], check=True)
 
 def mkgraph(test_set):
-    """ Prepare the HCLG.fst graph that is used in decoding. """
+    """Prepare the HCLG.fst graph that is used in decoding.
+
+       Kaldi uses a weighted finite-state transducer (WFST) architecture. This
+       involves composing four finite-state machines together:
+            - H: The acoustic model. Consumes acoustic states and outputs context-dependent phones.
+            - C: Maps context-dependent phones (eg. triphones) to context-independent phones
+            - L: The pronunciation lexicon. This maps phones to orthographic words,
+              potentially probabilistically.
+            - G: The language model. This ascribes probabilities to sequences
+              of words. It can also be a non-probabilistic grammar (hence the
+              origin of the 'G').
+
+        The call to mkgraph below prepares this graph by using L.fst and G.fst
+        found in lang_dir and the acoustic model found in model_dir. It outputs
+        the resulting HCLG.fst to graph_dir.
+
+        In our case of multilingual acoustic modelling followed by decoding a
+        specific language, the L and G are specific to the test language, while
+        the model_dir is common to all languages.
+    """
 
     lang_dir = f"data/{test_set}/data/lang_universal"
     model_dir = f"exp/chain_cleaned/tdnn_sp"
