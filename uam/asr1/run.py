@@ -106,9 +106,10 @@ def adapt():
     # TODO Read Matthew's recipe and implement:
     # /export/b09/mwiesner/LORELEI/tools/kaldi/egs/sinhala/s5/local/adapt_tdnn.sh
 
-def prepare_test_feats(test_set, args, env):
+def prepare_test_feats(lang, args, env):
     """ Prepares the test features by extracting MFCCs and ivectors."""
 
+    test_set = "{lang}_test"
     data_dir = f"data/{test_set}/data/dev10h.pem"
     hires_dir = f"{data_dir}_hires"
 
@@ -137,8 +138,9 @@ def prepare_test_feats(test_set, args, env):
          f"exp/make_hires/{test_set}_nopitch", mfcc_dir], check=True)
     run(["utils/fix_data_dir.sh", nopitch_dir], check=True)
 
-def prepare_test_ivectors(test_set, ivector_extractor_dir, args, env):
+def prepare_test_ivectors(lang, ivector_extractor_dir, args, env):
 
+    test_set = "{lang}_test"
     data_dir = f"data/{test_set}/data/dev10h.pem"
     hires_dir = f"{data_dir}_hires"
     nopitch_dir = f"{hires_dir}_nopitch"
@@ -154,7 +156,7 @@ def prepare_test_ivectors(test_set, ivector_extractor_dir, args, env):
           "--nj", str(args.feat_extract_nj),
           tmp_data_dir, ivector_extractor_dir, ivector_dir], check=True)
 
-def mkgraph(test_set):
+def mkgraph(lang):
     """Prepare the HCLG.fst graph that is used in decoding.
 
        Kaldi uses a weighted finite-state transducer (WFST) architecture. This
@@ -176,6 +178,8 @@ def mkgraph(test_set):
         the model_dir is common to all languages.
     """
 
+    # NOTE A lot of these functions assume the lang dir is called {lang}_test.
+    test_set = "{lang}_test"
     lang_dir = f"data/{test_set}/data/lang_universal"
     model_dir = f"exp/chain_cleaned/tdnn_sp"
     graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang"
@@ -186,11 +190,13 @@ def mkgraph(test_set):
             lang_dir, model_dir, graph_dir]
     run(args, check=True)
 
-def decode(test_set, args, env):
+def decode(lang, args, env):
     """Decode the test set.
 
     This actually means creating lattices, not utterance-level transcripts.
     """
+
+    test_set = "{lang}_test"
 
     # The directory where the HCLG.fst is stored, where the L and G components
     # (pronunciation lexicon and language model, respectively) appropriately
@@ -329,15 +335,16 @@ if __name__ == "__main__":
     #prepare_train(train_langs, recog_langs)
     #train()
 
+    test_lang = "206"
     ##### Preparing decoding #####
     # Make HCLG.fst.
-    #mkgraph("404_test")
+    mkgraph(test_lang)
     # Prepare MFCCs and CMVN stats.
-    #prepare_test_feats(test_set, args, env)
+    prepare_test_feats(test_lang, args, env)
     # Prepare ivectors
-    #prepare_test_ivectors(test_set, "exp/nnet3_cleaned/extractor", args, env)
+    prepare_test_ivectors(test_lang, "exp/nnet3_cleaned/extractor", args, env)
 
-    #decode("404_test", args, env)
-    #prepare_kws("404")
-    #kws("404", env)
-    #wer_score("404", env)
+    decode(test_lang, args, env)
+    prepare_kws(test_lang)
+    kws(test_lang, env)
+    wer_score(test_lang, env)
