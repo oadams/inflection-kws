@@ -10,11 +10,13 @@
         - Running decoding to get lattices.
         - Preparing KWS data
         - Performing KWS
+        - Optionally perform WER scoring.
 
     If you want to do it all with sensible default settings, just call this
     script.
 
-    Note it's a work in progress.
+    Note it's a work in progress, with hardcoded strings that need to become
+    more general.
 """
 
 import argparse
@@ -153,6 +155,9 @@ def decode(test_set, args, env):
     # The directory where the HCLG.fst is stored, where the L and G components
     # (pronunciation lexicon and language model, respectively) appropriately
     # cover the test set.
+    # TODO make the ordering of {test_set} with graph_lang consistent with the
+    # ordering of {test_set} with decode for the directory names. This caused a
+    # time-consuming bug previously!
     graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang"
 
     # The directory that contains the speech features (e.g. MFCCs)
@@ -175,9 +180,20 @@ def decode(test_set, args, env):
         # We really want to just get the lattices, we can do KWS scoring
         # separately in another function. (steps/nnet3/decode.sh calls
         # local/score.sh by default, which in this case would run KWS)
-
         "--skip-scoring", "true",
         graph_dir, data_dir, decode_dir]
+    run(args, check=True)
+
+def wer_score(lang, env):
+    """ Scores the WER of the lattices. """
+
+    data_dir = f"data/{lang}_test/data/dev10h.pem"
+    lang_dir = f"data/{lang}_test/data/lang_universal"
+    decode_dir =  f"exp/chain_cleaned/tdnn_sp/decode_{lang}_test"
+    cmd = "utils/queue.pl --mem 10G"
+    args = ["steps/score_kaldi.sh",
+            "--cmd", cmd,
+            data_dir, lang_dir, decode_dir]
     run(args, check=True)
 
 def prepare_kws(lang):
@@ -237,7 +253,7 @@ def kws(lang, env):
 
     lang_dir = f"data/{lang}_test/data/lang_universal"
     data_dir = f"data/{lang}_test/data/dev10h.pem"
-    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{lang}_decode_test"
+    decode_dir =  f"exp/chain_cleaned/tdnn_sp/decode_{lang}_test"
     cmd = "utils/queue.pl --mem 10G"
 
     # NOTE Need to rm .done.index if I need to re-run indexing. Actually, in
@@ -271,4 +287,5 @@ if __name__ == "__main__":
 
     #decode("404_test", args, env)
     #prepare_kws("404")
-    kws("404", env)
+    #kws("404", env)
+    wer_score("404", env)
