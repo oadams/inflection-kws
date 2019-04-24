@@ -115,9 +115,10 @@ def adapt():
     # /export/b09/mwiesner/LORELEI/tools/kaldi/egs/sinhala/s5/local/adapt_tdnn.sh
 
 def prepare_test_feats(lang, args, env):
-    """ Prepares the test features by extracting MFCCs and ivectors."""
+    """Prepares the test features by extracting MFCCs and pitch features."""
 
-    test_set = "{lang}_test"
+    # NOTE Assumes decoding dev10h.pem
+    test_set = f"{lang}_test"
     data_dir = f"data/{test_set}/data/dev10h.pem"
     hires_dir = f"{data_dir}_hires"
 
@@ -125,10 +126,9 @@ def prepare_test_feats(lang, args, env):
     run(["utils/copy_data_dir.sh",
          data_dir, hires_dir], check=True)
 
-    # Make MFCC pitch
+    # Prepare 43-dimensional MFCC/pitch features.
     log_dir = f"exp/make_hires/{test_set}"
     mfcc_dir = f"{hires_dir}/data"
-    # Prepare 43-dimensional MFCC/pitch features.
     run(["steps/make_mfcc_pitch_online.sh",
          "--nj", str(args.feat_extract_nj),
          "--mfcc-config", "conf/mfcc_hires.conf",
@@ -137,6 +137,7 @@ def prepare_test_feats(lang, args, env):
          stdout=sys.stdout, check=True)
     run(["steps/compute_cmvn_stats.sh", hires_dir], check=True)
     run(["utils/fix_data_dir.sh", hires_dir], check=True)
+
     # Extract features without pitch. Looks like ivector extraction gets done
     # without pitch features so it'll be useful to have these.
     nopitch_dir = f"{hires_dir}_nopitch"
@@ -146,9 +147,14 @@ def prepare_test_feats(lang, args, env):
          f"exp/make_hires/{test_set}_nopitch", mfcc_dir], check=True)
     run(["utils/fix_data_dir.sh", nopitch_dir], check=True)
 
-def prepare_test_ivectors(lang, ivector_extractor_dir, args, env):
+def prepare_test_ivectors(lang, args, env):
+    """Extract ivectors for the test data."""
 
-    test_set = "{lang}_test"
+    # NOTE We assume the ivector extractor is here.
+    ivector_extractor_dir = "exp/nnet3_cleaned/extractor"
+
+    test_set = f"{lang}_test"
+    # NOTE More assumptions of dev10.pem
     data_dir = f"data/{test_set}/data/dev10h.pem"
     hires_dir = f"{data_dir}_hires"
     nopitch_dir = f"{hires_dir}_nopitch"
@@ -187,7 +193,8 @@ def mkgraph(lang):
     """
 
     # NOTE A lot of these functions assume the lang dir is called {lang}_test.
-    test_set = "{lang}_test"
+    test_set = f"{lang}_test"
+
     lang_dir = f"data/{test_set}/data/lang_universal"
     model_dir = f"exp/chain_cleaned/tdnn_sp"
     graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang"
@@ -204,21 +211,19 @@ def decode(lang, args, env):
     This actually means creating lattices, not utterance-level transcripts.
     """
 
-    test_set = "{lang}_test"
+    test_set = f"{lang}_test"
 
     # The directory where the HCLG.fst is stored, where the L and G components
     # (pronunciation lexicon and language model, respectively) appropriately
     # cover the test set.
-    # TODO make the ordering of {test_set} with graph_lang consistent with the
-    # ordering of {test_set} with decode for the directory names. This caused a
-    # time-consuming bug previously!
     graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang"
 
     # The directory that contains the speech features (e.g. MFCCs)
     data_dir = f"data/{test_set}/data/dev10h.pem_hires"
 
     # The directory that contains
-    decode_dir = f"exp/chain_cleaned/tdnn_sp/decode_{test_set}"
+    # NOTE Needs a single point of control.
+    decode_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_decode"
 
     args = ["./steps/nnet3/decode.sh",
         "--cmd", env["decode_cmd"],
@@ -241,9 +246,14 @@ def decode(lang, args, env):
 def wer_score(lang, env):
     """ Scores the WER of the lattices. """
 
-    data_dir = f"data/{lang}_test/data/dev10h.pem"
-    lang_dir = f"data/{lang}_test/data/lang_universal"
-    decode_dir =  f"exp/chain_cleaned/tdnn_sp/decode_{lang}_test"
+    # NOTE Needs a single point of control.
+    test_set = f"{lang}_test"
+
+    data_dir = f"data/{test_set}/data/dev10h.pem"
+    lang_dir = f"data/{test_set}/data/lang_universal"
+    # NOTE Again, here's another directory that is identical to previously. We
+    # need a single point of control.
+    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode"
     cmd = "utils/queue.pl --mem 10G"
     args = ["steps/score_kaldi.sh",
             "--cmd", cmd,
@@ -253,7 +263,7 @@ def wer_score(lang, env):
 def prepare_kws(lang):
     """ Establish KWS lists and ground truth."""
 
-    # TODO Fill this in when I move beyond the standard babel sets.
+    # TODO Implement functionality for creating KW lists when I move beyond the standard babel sets.
 
     # NOTE For now I'm assuming we're using official Babel KWS gear.
     # Flag that decides whether to use the full language pack (FLP) or the
@@ -266,6 +276,8 @@ def prepare_kws(lang):
     print(babel_env["dev10h_rttm_file"])
     print(babel_env["dev10h_ecf_file"])
 
+    test_set = f"{lang}_test"
+
 
     # TODO Remove hardcoding and make a common reference to dev10h for all
     # functions in this script
@@ -275,8 +287,8 @@ def prepare_kws(lang):
     # require data/404_test/data/dev10h.pem/kws to become kws_kwlist{1,2,3,4},
     # like in the babel/s5d script.
     kwlist_file = "/export/babel/data/scoring/IndusDB/IARPA-babel404b-v1.0a_conv-dev/IARPA-babel404b-v1.0a_conv-dev.annot.kwlist3.xml"
-    lang_dir = f"data/{lang}_test/data/lang_universal"
-    data_dir = f"data/{lang}_test/data/dev10h.pem"
+    lang_dir = f"data/{test_set}/data/lang_universal"
+    data_dir = f"data/{test_set}/data/dev10h.pem"
     # TODO this will also have to generalize to multiple kws sets too.
     out_dir = f"{data_dir}/kws"
     args = ["local/search/setup.sh",
@@ -294,20 +306,24 @@ def prepare_kws(lang):
     run(args, check=True)
 
     # Aggregate the keywords from different lists into one FST.
-    run(f"sort {out_dir}/tmp.2/keywords.scp > {out_dir}/tmp.2/keywords.sorted.scp", shell=True)
-    run(f"fsts-union scp:{out_dir}/tmp.2/keywords.sorted.scp ark,t:\"|gzip -c >{out_dir}/keywords.fsts.gz\"", shell=True, check=True)
-    
-
+    run(f"sort {out_dir}/tmp.2/keywords.scp > {out_dir}/tmp.2/keywords.sorted.scp",
+        shell=True, check=True)
+    run(f"fsts-union scp:{out_dir}/tmp.2/keywords.sorted.scp ark,t:\"|gzip -c >{out_dir}/keywords.fsts.gz\"",
+        shell=True, check=True)
 
 def kws(lang, env):
-    """ Run keyword search.
+    """Run keyword search.
 
-        See kaldi/egs/babel/s5d/local/search/run_search.sh for more details.
+       See kaldi/egs/babel/s5d/local/search/run_search.sh for more details.
     """
 
-    lang_dir = f"data/{lang}_test/data/lang_universal"
-    data_dir = f"data/{lang}_test/data/dev10h.pem"
-    decode_dir =  f"exp/chain_cleaned/tdnn_sp/decode_{lang}_test"
+    test_set = f"{lang}_test"
+
+    lang_dir = f"data/{test_set}/data/lang_universal"
+    data_dir = f"data/{test_set}/data/dev10h.pem"
+    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode"
+    # NOTE had issues passing in the env["decode_cmd"] because queue.pl wasn't
+    # in the PATH or something, so using hardcoded utils/queue.pl for now.
     cmd = "utils/queue.pl --mem 10G"
 
     # NOTE Need to rm .done.index if I need to re-run indexing. Actually, in
