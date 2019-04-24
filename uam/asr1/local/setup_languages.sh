@@ -125,5 +125,6 @@ for l in ${recog2}; do
     
     
     cd ${cwd}
-  )
+  ) &
 done
+wait

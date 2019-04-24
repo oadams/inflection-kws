@@ -65,7 +65,7 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def prepare_train(train_langs, recog_langs):
+def prepare_langs(train_langs, recog_langs):
     """Prepares training data.
 
        train_langs is the set of languages that the acoustic model is to be
@@ -73,12 +73,20 @@ def prepare_train(train_langs, recog_langs):
        recognize. Language models get trained on these languages.
     """
 
-    # Prepare the training data/{lang} directories fore each lang. Also trains
-    # the language models for the recog_langs.
+    # NOTE It's possible for recog data being prepared to fail, and the
+    # setup_languages.sh script will fail silently. This has been the case for
+    # Zulu.
+
+    # Prepare the data/{lang} directories for each lang. Also trains the
+    # language models for the recog_langs in data/{recog_lang}_test
     args = ["./local/setup_languages.sh",
             "--langs", " ".join(train_langs),
             "--recog", " ".join(recog_langs)]
     run(args, check=True)
+
+def prepare_align():
+    """Prepares training data by aligning audio data to text."""
+    # NOTE Untested
 
     # HMM-GMM training to get alignments between audio and text.
     args = ["./local/get_alignments.sh"]
@@ -89,14 +97,14 @@ def prepare_train(train_langs, recog_langs):
     args = ["./local/run_cleanup_segmentation.sh"]
     run(args, check=True)
 
+def train():
+    """Trains a model."""
+    # NOTE Untested
+
     # TODO Talk to Matthew about using 100-lang bottlneck features. I looked in
     # /export/b09/mwiesner/LORELEI/tasks/uam/asr1_99langs/local/prepare_recog.sh
     # and couldn't find anything.
 
-def train():
-    """Trains a model. """
-
-    # TODO call ./local/chain/run_tdnn.sh
     args = ["./local/chain/run_tdnn.sh"]
     run(args, check=True)
 
@@ -319,32 +327,46 @@ if __name__ == "__main__":
     # TODO Source path.sh and conf/lang.conf as well.
     env = source(["cmd.sh"])
 
+    # This is a set of most of the Babel languages, except for 4 held-out
+    # cases.
     # TODO Use a mapping from ISO 639-3 codes to Babel lang codes for
     # readability.
-    # This is a set of most of the babel languages, except for 4 held-out
-    # cases.
     train_langs = ["101", "102", "103", "104", "105", "106",
                    "202", "203", "204", "205", "206", "207",
                    "301", "302", "303", "304", "305", "306",
                    "401", "402", "403"]
     # NOTE We prepare pronunciation lexicons and LMS for the languages below,
     # but don't use acoustic data.
-    #recog_langs = train_langs + ["107", "201", "307", "404"]
-    recog_langs = ["206"]
-    # The cores steps in the pipeline.
-    #prepare_train(train_langs, recog_langs)
+    recog_langs = train_langs + ["107", "201", "307", "404"]
+    recog_langs = ["202", "206"]
+
+    # The core steps in the pipeline.
+    #prepare_langs(train_langs, recog_langs)
+
+    #prepare_align()
     #train()
 
-    test_lang = "206"
+    # TODO Perhaps break this second decoding part off into a separate stage
+    # which gets determined by a command line argument. For example, ru.py
+    # --stage train would run prepare_langs(), prepare_align() and train(),
+    # while --stage decode would do mkgraph(), prepare_test_feats(),
+    # prepare_test_ivectors(), and decode(). A third --stage kws would create
+    # an index given a specific keyword list and score.
+
+    test_lang = "202"
     ##### Preparing decoding #####
     # Make HCLG.fst.
     mkgraph(test_lang)
     # Prepare MFCCs and CMVN stats.
     prepare_test_feats(test_lang, args, env)
     # Prepare ivectors
-    prepare_test_ivectors(test_lang, "exp/nnet3_cleaned/extractor", args, env)
+    prepare_test_ivectors(test_lang, args, env)
 
     decode(test_lang, args, env)
+
+    """
+    ##### KWS #####
     prepare_kws(test_lang)
     kws(test_lang, env)
     wer_score(test_lang, env)
+    """
