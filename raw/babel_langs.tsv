@@ -1,0 +1,26 @@
+name	iso 639-1	iso 639-3	Babel code	In Unimorph	Other lang codes
+Cantonese		yue	101	FALSE	
+Assamese	as	asm	102	FALSE	
+Bengali	bn	ben	103	TRUE	
+Pashto	ps	pus	104	TRUE	pst,pbu,pbt,wne
+Turkish	tr	tur	105	TRUE	
+Tagalog	tl	tgl	106	FALSE	
+Vietnamese	vi	vie	107	FALSE	
+Haitian	ht	hat	201	FALSE	
+Swahili	sw	swa	202	TRUE	swc,swh,ymk,wmw
+Lao	lo	lao	203	FALSE	tts
+Tamil	ta	tam	204	FALSE	
+Kurmanji		kmr	205	TRUE	
+Zulu	zu	zulu	206	TRUE	
+Tok Pisin		tpi	207	FALSE	
+Cebuano		ceb	301	FALSE	
+Kazakh	kk	kaz	302	TRUE	
+Telugu	te	tel	303	TRUE	
+Lithuanian	lt	lit	304	TRUE	
+Guarani	gn	gug	305	FALSE	
+Igbo	ig	ibo	306	FALSE	
+Amharic	am	amh	307	FALSE	
+Mongolian	mn	mon	401	FALSE	khk,mvf
+Javanese	jv	jav	402	FALSE	
+Dholuo		luo	403	FALSE	
+Georgian	ka	kat	404	TRUE	

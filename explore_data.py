@@ -58,12 +58,60 @@ def print_pos_statistics(unimorph_inflections):
         pos = bundle[0]
         num_inflections[pos].append(len(unimorph_inflections[lemma]))
     avg_num_inflections = dict()
+
     for pos in num_inflections:
         avg_num_inflections[pos] = sum(num_inflections[pos])/len(num_inflections[pos])
 
     print(avg_num_inflections)
 
+def load_cognate_data():
+    """Loads Winston's ground truth cognate data scraped from Wiktionary."""
+
+    from iso639 import languages
+    import pandas as pd
+
+    cog_fn = Path("raw/cognates.txt")
+    babel_langs_fn = Path("raw/babel_langs.tsv")
+
+    lang2types = defaultdict(set)
+    lang2toks = defaultdict(list)
+    with open(cog_fn) as f:
+        for line in f:
+            src, _, tgt = line.split("\t")
+            src_lang, src_type = src.split("|")
+            tgt_lang, tgt_type = tgt.split("|")
+            lang2types[src_lang].add(src_type)
+            lang2types[tgt_lang].add(tgt_type)
+            lang2toks[src_lang].append(src_type)
+            lang2toks[tgt_lang].append(tgt_type)
+
+    babel_df = pd.read_csv(str(babel_langs_fn), sep="\t")
+
+    unimorph_df = babel_df[babel_df["In Unimorph"] == True]
+
+    for code in babel_df["iso 639-1"]:
+        if (len(lang2toks[code]) > 0 and
+                code in unimorph_df["iso 639-1"].values):
+            print(f"code: {code}, #types: {len(lang2types[code])}, #toks: {len(lang2toks[code])}")
+    for code in babel_df["iso 639-3"]:
+        if (len(lang2toks[code]) > 0 and
+                code in unimorph_df["iso 639-3"].values):
+            print(f"code: {code}, #types: {len(lang2types[code])}, #toks: {len(lang2toks[code])}")
+    """
+        try:
+            if len(code) == 2:
+                lang = languages.get(alpha2=code)
+            elif len(code) == 3:
+                lang = languages.get(terminology=code)
+            print(f"code: {code}, name: {lang.name}")
+        except KeyError:
+            print(f"Couldn't find code: {code}")
+    """
+
+
 if __name__ == "__main__":
     lang = "zul"
-    unimorph_inflections = load_unimorph_inflections(lang)
-    print_pos_statistics(unimorph_inflections)
+    #unimorph_inflections = load_unimorph_inflections(lang)
+    #print_pos_statistics(unimorph_inflections)
+
+    load_cognate_data()
