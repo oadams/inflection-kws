@@ -225,8 +225,11 @@ def decode(lang, args, env):
     # NOTE Needs a single point of control.
     decode_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_decode"
 
+    cmd = env["decode_cmd"]
+    cmd = "utils/queue.pl --mem 10G"
+
     args = ["./steps/nnet3/decode.sh",
-        "--cmd", env["decode_cmd"],
+        "--cmd", cmd,
         "--nj", str(args.decode_nj),
         "--online-ivector-dir", f"exp/nnet3_cleaned/ivectors_{test_set}_hires",
         # We're using chain models, so we adjust the acoustic
@@ -273,9 +276,6 @@ def prepare_kws(lang):
     babel_egs_path = Path("conf/lang")
     for path in babel_egs_path.glob(f"{lang}*FLP*" if flp else f"{lang}*LLP*"):
         babel_env = source([str(path)])
-    print(babel_env["dev10h_rttm_file"])
-    print(babel_env["dev10h_ecf_file"])
-
     test_set = f"{lang}_test"
 
 
@@ -283,10 +283,14 @@ def prepare_kws(lang):
     # functions in this script
     rttm_file = babel_env["dev10h_rttm_file"]
     ecf_file = babel_env["dev10h_ecf_file"]
+
+    # NOTE Assume the KW list files are in the same directory as the
+    # RTTM files. For now, just use KWlist 3.
     # TODO We'll want to make this more than just KWS list 3.. this will
     # require data/404_test/data/dev10h.pem/kws to become kws_kwlist{1,2,3,4},
     # like in the babel/s5d script.
-    kwlist_file = "/export/babel/data/scoring/IndusDB/IARPA-babel404b-v1.0a_conv-dev/IARPA-babel404b-v1.0a_conv-dev.annot.kwlist3.xml"
+    for kwlist_path in Path(rttm_file).parent.glob("*kwlist3.xml"):
+        kwlist_file = str(kwlist_path)
     lang_dir = f"data/{test_set}/data/lang_universal"
     data_dir = f"data/{test_set}/data/dev10h.pem"
     # TODO this will also have to generalize to multiple kws sets too.
@@ -326,9 +330,9 @@ def kws(lang, env):
     # in the PATH or something, so using hardcoded utils/queue.pl for now.
     cmd = "utils/queue.pl --mem 10G"
 
-    # NOTE Need to rm .done.index if I need to re-run indexing. Actually, in
-    # general for all these functions I should take a kwarg flag that asks to
-    # redo it all from scratch.
+    # NOTE Need to rm .done.index if I need to re-run indexing. Actually TODO, in
+    # general for all these functions I should take a kwarg flag that can be
+    # used to force all the processing for the given function from scratch.
     args = ["./local/search/search.sh",
             "--cmd", cmd,
             # I do not know what these optional arguments do.
@@ -370,6 +374,8 @@ if __name__ == "__main__":
     # an index given a specific keyword list and score.
 
     test_lang = "202"
+
+    """
     ##### Preparing decoding #####
     # Make HCLG.fst.
     mkgraph(test_lang)
@@ -379,10 +385,9 @@ if __name__ == "__main__":
     prepare_test_ivectors(test_lang, args, env)
 
     decode(test_lang, args, env)
-
     """
+
     ##### KWS #####
     prepare_kws(test_lang)
     kws(test_lang, env)
     wer_score(test_lang, env)
-    """
