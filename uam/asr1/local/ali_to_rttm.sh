@@ -59,7 +59,7 @@ wend=`grep "#2" $lang/phones.txt | head -1 | awk '{print $2}'`
 
 if [ ! -f $lang/L_align.fst ]; then
   echo "$0: generating $lang/L_align.fst"
-  local/make_L_align.sh data/local/tmp.lang/ $lang $lang 2>&1 | tee $dir/log/L_align.log
+  local/make_L_align.sh data/lang_universalp/tri5/phones $lang $lang 2>&1 | tee $dir/log/L_align.log
 fi
 
 $cmd $dir/log/align_to_words.log \
@@ -71,7 +71,7 @@ echo "$0: done writing alignments."
 
 echo "$0: writing rttm."
 [ ! -x local/txt_to_rttm.pl ] && \
-  echo "Not creating rttm because local/txt2rttm.pl does not exist or not executable." && exit 1;
+  echo "Not creating rttm because local/txt_2_rttm.pl does not exist or not executable." && exit 1;
 
 local/txt_to_rttm.pl --symtab=$lang/words.txt --segment=$data/segments $dir/align.txt $dir/rttm 2>$dir/log/rttm.log
 local/txt_to_rttm.pl --symtab=$lang/words.txt $dir/align.txt $dir/rttm.per-utt 2>$dir/log/rttm.per-utt.log

@@ -36,7 +36,7 @@ outdir=$3
 
 for f in  $dir/phones/optional_silence.txt $dir/phones.txt $dir/words.txt ; do
   [ ! -f $f ] &&  echo "$0: The file $f must exist!" exit 1
-fi
+done
 
 silphone=`cat $dir/phones/optional_silence.txt` || exit 1;
 

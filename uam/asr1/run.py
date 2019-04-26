@@ -342,6 +342,90 @@ def kws(lang, env):
             lang_dir, data_dir, decode_dir]
     run(args, check=True)
 
+def generate_rttm(lang):
+    """
+    """
+
+    """
+    # First perform forced alignment
+    # TODO Make sure this is the right alignment script. Can I just use what
+    # we used for HMM-GMM alignment in preprocessing?
+    test_set = f"{lang}_test"
+    data_dir = f"data/{test_set}/data/dev10h.pem"
+    lang_dir = f"data/{test_set}/data/lang_universal"
+    # TODO Exp dir an ali dir will have to change to be relevant to the
+    # specific language at hand.
+    exp_dir = f"exp/tri5"
+    ali_dir = f"exp/tri5_ali"
+    args = ["local/align_fmllr.sh",
+            "--nj", nj,
+            "--cmd", cmd,
+            "--transform-dir", transform_dir,
+            data_dir, lang_dir, exp_dir]
+    run(args, check=True)
+    """
+
+    # Now produce an RTTM file from the alignments
+    # TODO Generalize these.
+    #data_dir = f"data/{test_set}/data/dev10h.pem"
+    #lang_dir = f"data/{test_set}/data/lang_universal"
+    #ali_dir = f""
+    data_dir = "data/train"
+    lang_dir = "data/lang_universalp/tri5"
+    ali_dir = "exp/tri5_ali"
+    args = ["local/ali_to_rttm.sh",
+            data_dir, lang_dir, ali_dir]
+    run(args, check=True)
+
+    # NOTE In order to have a lexicon that dealt with things like t_"_B, I
+    # needed to run cut -d " " -f 2- \
+    # data/lang_universalp/tri5/phones/align_lexicon.txt > \
+    # data/lang_universalp/tri5/phones/lexicon.txt
+    # On top of this, the call in ali_to_rttm.sh to local/make_L_align.sh had
+    # to change the first argument to data/lang_universalp/tri5/phones
+
+def create_unimorph_babel_kwlist(lang):
+    """ Given Unimorph and Babel data for a language, create a keyword list for
+        searching for inflected forms of a word.
+
+        The task is framed as follows: given a word, find occurrences of that
+        word in the speech. However, unlike traditional KWS, the model is
+        rewarded for finding any inflection of the word, and penalized if those
+        are missed.
+
+        There are a number of steps. First is to examine what words occur both
+        in the unimorph data as well as in our Babel data. The Unimorph
+        paradigms will give us ground truth as to what words are actually
+        inflections of those. We then just find which utterances they occur in
+        the Babel dev set, making sure we account for homonyms.
+
+        Next we need to get a finer-grained location of those words in the
+        utterance. To do this we need to run forced alignment between the
+        utterance and the speech, probably using the HMM-GMM system that was
+        used to perform alignment before training the chain model in the
+        first place. With those alignments in place, we can create the
+        requisite RTTM, ECF and KW list XML files. Then we simply call
+        prepare_kws() and kws() as previously.
+
+        There's also the cognate task variation on this. This has a similar
+        formulation, but is different with regards to construction of the
+        evaluation set. For that task, we want to search for some source
+        language concepts in target language speech. This is essentially
+        cross-lingual keyword search.
+    """
+
+    # First generate a set of words, along with the utterances that their
+    # inflections are found in.
+    #x = generate_unimorph_babel_words()
+
+    # Then generate the RTTM file, which represents where in each utterance the
+    # keyword or its inflections occur. This will involve a call to
+    # egs/babel/local/ali_to_rttm.sh
+    generate_rttm(lang)
+
+    # Generate the ECF file, which represents....TODO
+    #generate_ecf(x)
+
 if __name__ == "__main__":
     args = get_args()
     # TODO Source path.sh and conf/lang.conf as well.
@@ -387,7 +471,12 @@ if __name__ == "__main__":
     decode(test_lang, args, env)
     """
 
+    ##### Creating KW List #####
+    generate_rttm(test_lang)
+
+    """
     ##### KWS #####
     prepare_kws(test_lang)
     kws(test_lang, env)
     wer_score(test_lang, env)
+    """
