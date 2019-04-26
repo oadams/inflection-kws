@@ -342,11 +342,13 @@ def kws(lang, env):
             lang_dir, data_dir, decode_dir]
     run(args, check=True)
 
-def generate_rttm(lang):
+def generate_rttm(lang, args):
     """
     """
 
-    """
+    # TODO Retrain the tri5 model using both train and dev data in training so
+    # we can get better ground-truth alignments.
+
     # First perform forced alignment
     # TODO Make sure this is the right alignment script. Can I just use what
     # we used for HMM-GMM alignment in preprocessing?
@@ -355,16 +357,18 @@ def generate_rttm(lang):
     lang_dir = f"data/{test_set}/data/lang_universal"
     # TODO Exp dir an ali dir will have to change to be relevant to the
     # specific language at hand.
-    exp_dir = f"exp/tri5"
-    ali_dir = f"exp/tri5_ali"
-    args = ["local/align_fmllr.sh",
+    src_dir = f"exp/tri5" # The directory that has the AM we'll use for alignment.
+    ali_dir = f"exp/tri5_ali_{test_set}_dev10h" # TODO Really need to factor out dev10h
+
+    nj = str(args.decode_nj)
+    cmd = "utils/queue.pl --mem 10G"
+    args = ["steps/align_fmllr.sh",
             "--nj", nj,
             "--cmd", cmd,
-            "--transform-dir", transform_dir,
-            data_dir, lang_dir, exp_dir]
+            data_dir, lang_dir, src_dir, ali_dir]
     run(args, check=True)
-    """
 
+    """
     # Now produce an RTTM file from the alignments
     # TODO Generalize these.
     #data_dir = f"data/{test_set}/data/dev10h.pem"
@@ -376,6 +380,7 @@ def generate_rttm(lang):
     args = ["local/ali_to_rttm.sh",
             data_dir, lang_dir, ali_dir]
     run(args, check=True)
+    """
 
     # NOTE In order to have a lexicon that dealt with things like t_"_B, I
     # needed to run cut -d " " -f 2- \
@@ -403,9 +408,13 @@ def create_unimorph_babel_kwlist(lang):
         utterance. To do this we need to run forced alignment between the
         utterance and the speech, probably using the HMM-GMM system that was
         used to perform alignment before training the chain model in the
-        first place. With those alignments in place, we can create the
-        requisite RTTM, ECF and KW list XML files. Then we simply call
-        prepare_kws() and kws() as previously.
+        first place. Actually, we will want to retrain the HMM-GMM system,
+        incorporating the dev10 data into the training data so that we can get
+        'ground-truth' alignments. But as a first approximation, reusing the
+        existing tri5 model will probably do. Alignments should be accurate,
+        since we do in fact get to see the transcription. With those alignments
+        in place, we can create the requisite RTTM, ECF and KW list XML files.
+        Then we simply call prepare_kws() and kws() as previously.
 
         There's also the cognate task variation on this. This has a similar
         formulation, but is different with regards to construction of the
@@ -472,7 +481,7 @@ if __name__ == "__main__":
     """
 
     ##### Creating KW List #####
-    generate_rttm(test_lang)
+    generate_rttm(test_lang, args)
 
     """
     ##### KWS #####
