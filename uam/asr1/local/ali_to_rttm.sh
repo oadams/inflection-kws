@@ -63,9 +63,9 @@ if [ ! -f $lang/L_align.fst ]; then
 fi
 
 $cmd $dir/log/align_to_words.log \
-  ali-to-phones $dir/final.mdl "ark:gunzip -c $dir/ali.*.gz|" ark,t:- \| \
-  phones-to-prons $lang/L_align.fst $wbegin $wend ark:- "ark,s:utils/sym2int.pl -f 2- --map-oov '$oov' $lang/words.txt <$data/text|" ark,t:- \| \
-  prons-to-wordali ark:- "ark:ali-to-phones --write-lengths=true $dir/final.mdl 'ark:gunzip -c $dir/ali.*.gz|' ark,t:- |" ark,t:$dir/align.txt
+  ali-to-phones $dir/final.mdl "ark:gunzip -c $dir/ali.*.gz|" ark,t:tmp1
+  phones-to-prons $lang/L_align.fst $wbegin $wend ark:tmp1 "ark,s:utils/sym2int.pl -f 2- --map-oov '$oov' $lang/words.txt <$data/text|" ark,t:tmp2
+  prons-to-wordali ark:tmp2 "ark:ali-to-phones --write-lengths=true $dir/final.mdl 'ark:gunzip -c $dir/ali.*.gz|' ark,t:- |" ark,t:$dir/align.txt
 
 echo "$0: done writing alignments."
 
