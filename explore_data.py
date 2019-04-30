@@ -2,7 +2,11 @@
 from collections import defaultdict
 from pathlib import Path
 
-def load_unimorph_inflections(lang):
+babel2iso = {"206":"zul",
+             "202":"swc",}
+babel2name = {"206":"zulu", "202":"swahili"}
+
+def load_unimorph_inflections(iso_code):
     """ Given an ISO 639-3 language code, returns a mapping from lemmas of that
     language to list of tuples of <inflection, unimorph bundle>.
     """
@@ -17,12 +21,56 @@ def load_unimorph_inflections(lang):
                 inflections[lemma].append((inflection, bundle))
     return inflections
 
-def explore_babel_unimorph():
+def load_rttm_toks(babel_code, remove_lang_suffix=True):
+    """Loads a list of tokens seen in the RTTM file for a given language."""
+
+    toks = []
+    rttm_path = Path(f"uam/asr1/exp/tri5_ali_{babel_code}_test_dev10h/rttm")
+    with open(rttm_path) as f:
+        for line in f:
+            fields = line.split() # RTTMs are space-delimited
+            ortho = fields[5] # The written form is in field 6.
+            if remove_lang_suffix:
+                if ortho.endswith(babel_code):
+                    ortho = ortho[:-(len(babel_code)+1)].lower()
+            toks.append(ortho)
+    return toks
+
+def compare_rttm_unimorph(babel_code):
+
+    rttm_toks = load_rttm_toks(babel_code)
+    rttm_types = set(rttm_toks)
+    unimorph_lexemes = load_unimorph_inflections(babel2iso[babel_code])
+    unimorph_lemmas = set(unimorph_lexemes.keys())
+
+    unimorph_inflections = set()
+    for vals in unimorph_lexemes.values():
+        inflections = set([inflection for inflection, bundle in vals])
+        unimorph_inflections = unimorph_inflections.union(inflections)
+
+    unimorph_noun_inflections = set()
+    for vals in unimorph_lexemes.values():
+        noun_inflections = set([inflection for inflection, bundle in vals
+                                if bundle.startswith("N;")])
+        unimorph_noun_inflections = unimorph_noun_inflections.union(noun_inflections)
+
+    print("Lemma coverage:")
+    #print(rttm_toks[:10])
+    print(f"len rttm_types: {len(rttm_types)}")
+    print(f"len unimorph_lemmas: {len(unimorph_lemmas)}")
+    print(f"len unimorph_lemmas \cap rttm_types: {len(unimorph_lemmas.intersection(set(rttm_types)))}")
+    print(f"len unimorph_inflections: {len(unimorph_inflections)}")
+    print(f"len unimorph_inflections \cap rttm_types: {len(unimorph_inflections.intersection(set(rttm_types)))}")
+
+    print(f"len unimorph_noun_inflections: {len(unimorph_noun_inflections)}")
+    print(f"len unimorph_noun_inflections \cap rttm_types: {len(unimorph_noun_inflections.intersection(set(rttm_types)))}")
+
+def explore_babel_unimorph(lang):
     """ Explores how well the unimorph paradigms intersect with the Babel dev
     set. """
 
     # Load the types seen in the Babel Zulu dev set.
-    babel_dev_dir = Path("/export/babel/data/206-zulu/release-current/conversational/dev/transcription")
+    babel_dev_dir = Path(f"/export/babel/data/{lang}-{babel2name[lang]}/release-current/conversational/dev/transcription")
     babel_types = set()
     for transcript_path in babel_dev_dir.glob("*.txt"):
         with transcript_path.open() as f:
@@ -33,8 +81,9 @@ def explore_babel_unimorph():
     #print(types)
 
     # Load the Zulu unimorph data
-    unimorph_inflections = load_unimorph_inflections("zul")
+    unimorph_inflections = load_unimorph_inflections(babel2iso[lang])
 
+    #print("Number of toks in Babel dev: {}".format(len(babel_toks)))
     print("Number of types in Babel dev: {}".format(len(babel_types)))
     print("Number of lemmas in Unimorph: {}".format(len(unimorph_inflections)))
     print("card(Babel & Unimorph): {}".format(len(set(unimorph_inflections.keys()).intersection(babel_types))))
@@ -113,5 +162,7 @@ if __name__ == "__main__":
     lang = "zul"
     #unimorph_inflections = load_unimorph_inflections(lang)
     #print_pos_statistics(unimorph_inflections)
+    #explore_babel_unimorph("202")
+    compare_rttm_unimorph("206")
 
-    load_cognate_data()
+    #load_cognate_data()
