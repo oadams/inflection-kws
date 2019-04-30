@@ -36,6 +36,83 @@ def load_rttm_toks(babel_code, remove_lang_suffix=True):
             toks.append(ortho)
     return toks
 
+def load_dev_toks(babel_code):
+    babel_dev_dir = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/release-current/conversational/dev/transcription")
+    babel_dev_toks = []
+    for transcript_path in babel_dev_dir.glob("*.txt"):
+        with transcript_path.open() as f:
+            for line in f:
+                babel_dev_toks.extend(
+                        [tok.strip().lower() for tok in line.split()
+                                             if not (tok.startswith("[")
+                                                and tok.endswith("]"))
+                                             and not (tok.startswith("<")
+                                                and tok.endswith(">"))])
+    return babel_dev_toks
+
+def load_lexicon(babel_code):
+    """ Loads the Babel lexicon for a given language. """
+
+    lang_path = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/release-current/conversational/reference_materials/")
+    lexicon_subtrain_path = lang_path / "lexicon.sub-train.txt"
+    lexicon_path = lang_path / "lexicon.txt"
+
+    types = set()
+    with open(lexicon_path) as f:
+        for line in f:
+            types.add(line.split("\t")[0])
+    subtrain_types = set()
+    with open(lexicon_subtrain_path) as f:
+        for line in f:
+            subtrain_types.add(line.split("\t")[0])
+
+    # Let's assess coverage of the train/dev data with these lexicons.
+    dev_toks = load_dev_toks(babel_code)
+    print(dev_toks[:100])
+    print(len(dev_toks))
+    dev_types = set(dev_toks)
+
+    print(len(dev_types.intersection(types))/len(dev_types))
+    return types
+
+def construct_test_set(babel_code):
+    """ Constructs a KW test set
+
+    Some key considerations:
+        - Every inflection of a paradigm that is observed in the dev set also
+        needs to be covered in the pronunciation lexicon. If this isn't
+        satisfied, then the RTTM reference might be missing some forms not
+        covered by the lexicon, which would mean the "ground truth" is wrong.
+    """
+
+    # Find all the dev tokens.
+    dev_toks = load_dev_toks(babel_code)
+    dev_types = set(dev_toks)
+
+    lexicon = load_lexicon(babel_code)
+
+    covered_lexeme_count = 0
+    unimorph_lexemes = load_unimorph_inflections(babel2iso[babel_code])
+    for lemma in unimorph_lexemes:
+
+        # Flag to say whether the lexeme is covered by the pronunciation
+        # lexicon
+        lexeme_covered = True
+
+        for inflection, bundle in unimorph_lexemes[lemma]:
+            if inflection in dev_types and inflection not in lexicon:
+                # Then we can't use the lexeme, since the RTTM will be missing
+                # the a valid inflection that a system might look for and find.
+                # TODO perhaps confirm that the RTTM doesn't have it.
+                lexeme_covered = False
+
+        if lexeme_covered:
+            covered_lexeme_count += 1
+
+    print(f"Covered lexemes: {covered_lexeme_count}")
+    print(f"Total lexemes: {len(unimorph_lexemes.keys())}")
+
+
 def compare_rttm_unimorph(babel_code):
 
     rttm_toks = load_rttm_toks(babel_code)
@@ -163,6 +240,8 @@ if __name__ == "__main__":
     #unimorph_inflections = load_unimorph_inflections(lang)
     #print_pos_statistics(unimorph_inflections)
     #explore_babel_unimorph("202")
-    compare_rttm_unimorph("206")
+    #compare_rttm_unimorph("206")
+    #load_lexicon("206")
+    construct_test_set("206")
 
     #load_cognate_data()
