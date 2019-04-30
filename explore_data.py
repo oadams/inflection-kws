@@ -93,25 +93,41 @@ def construct_test_set(babel_code):
 
     covered_lexeme_count = 0
     unimorph_lexemes = load_unimorph_inflections(babel2iso[babel_code])
+    covered_lexemes = dict()
     for lemma in unimorph_lexemes:
 
         # Flag to say whether the lexeme is covered by the pronunciation
         # lexicon
         lexeme_covered = True
 
+        seen_inflections = []
         for inflection, bundle in unimorph_lexemes[lemma]:
-            if inflection in dev_types and inflection not in lexicon:
-                # Then we can't use the lexeme, since the RTTM will be missing
-                # the a valid inflection that a system might look for and find.
-                # TODO perhaps confirm that the RTTM doesn't have it.
-                lexeme_covered = False
+            if inflection in dev_types:
+                if inflection not in lexicon:
+                    # Then we can't use the lexeme, since the RTTM will be missing
+                    # the a valid inflection that a system might look for and find.
+                    # TODO perhaps confirm that the RTTM doesn't have it.
+                    lexeme_covered = False
+                seen_inflections.append(inflection)
 
         if lexeme_covered:
             covered_lexeme_count += 1
+            covered_lexemes[lemma] = seen_inflections
 
     print(f"Covered lexemes: {covered_lexeme_count}")
     print(f"Total lexemes: {len(unimorph_lexemes.keys())}")
 
+    total_seen_inflections = 0
+    total_inflections = 0
+    for lemma in covered_lexemes:
+        total_seen_inflections += len(covered_lexemes[lemma])
+        total_inflections += len(unimorph_lexemes[lemma])
+
+    print("Avg. # seen inflections per lexeme: {}".format(total_seen_inflections/len(list(covered_lexemes.keys()))))
+    print("Avg. # unimorph inflections per lexeme: {}".format(total_inflections/len(list(covered_lexemes.keys()))))
+
+
+    # Now additionally constrain based on Garrett's set.
 
 def compare_rttm_unimorph(babel_code):
 
