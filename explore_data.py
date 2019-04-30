@@ -75,6 +75,27 @@ def load_lexicon(babel_code):
     print(len(dev_types.intersection(types))/len(dev_types))
     return types
 
+def load_garrett_hypotheses(iso_code):
+
+    hyps_path = Path(f"/export/a14/yarowsky-lab/gnicolai/G2PHypotheses/{iso_code}.nouns.out")
+    hyps = {}
+    with open(hyps_path) as f:
+        for line in f:
+            fields = line.split("\t")
+            bundle, lemma = fields[0].split("+")
+            inflection_hyp = fields[1]
+
+            if lemma in hyps:
+                if bundle in hyps[lemma]:
+                    hyps[lemma][bundle].append(inflection_hyp)
+                else:
+                    hyps[lemma][bundle] = [inflection_hyp]
+            else:
+                hyps[lemma] = {bundle: [inflection_hyp]}
+
+    import pprint
+    pprint.pprint(hyps)
+
 def construct_test_set(babel_code):
     """ Constructs a KW test set
 
@@ -258,6 +279,7 @@ if __name__ == "__main__":
     #explore_babel_unimorph("202")
     #compare_rttm_unimorph("206")
     #load_lexicon("206")
-    construct_test_set("206")
+    #construct_test_set("206")
+    load_garrett_hypotheses("zul")
 
     #load_cognate_data()
