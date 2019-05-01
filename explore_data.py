@@ -12,14 +12,26 @@ def load_unimorph_inflections(iso_code):
     language to list of tuples of <inflection, unimorph bundle>.
     """
 
+    # TODO Need to assert that each lemma only occurs in one contiguous
+    # grouping.
+
     inflections = defaultdict(list)
     lang_path = Path("raw/unimorph/{}/{}".format(lang, lang))
+    lemma = None
+    seen_lemmas = set()
     with lang_path.open() as f:
         for line in f:
             sp = line.split()
             if len(sp) == 3:
                 lemma, inflection, bundle = sp
+                if lemma in seen_lemmas:
+                    assert False
                 inflections[lemma].append((inflection, bundle))
+            else:
+                # Then it's a blank line or something else and we can say we've
+                # "seen" the lemma. Now any subsequent time we see it would be
+                # a lemma-ambiguity wich might break subsequent code.
+                seen_lemmas.add(lemma)
     return inflections
 
 def load_rttm_toks(babel_code, remove_lang_suffix=True):
@@ -150,7 +162,6 @@ def construct_test_set(babel_code):
     print("Avg. # seen inflections per lexeme: {}".format(total_seen_inflections/len(list(covered_lexemes.keys()))))
     print("Avg. # unimorph inflections per lexeme: {}".format(total_inflections/len(list(covered_lexemes.keys()))))
 
-
     # Now additionally constrain based on Garrett's set.
     hyps = load_garrett_hypotheses(babel2iso[babel_code])
     print(len(set(hyps.keys()).intersection(set(covered_lexemes.keys()))))
@@ -158,7 +169,27 @@ def construct_test_set(babel_code):
     # TODO Not sure where this comes from, but it needs to generalize.
     ecf_fn = "IARPA-babel404b-v1.0a_conv-dev.ecf.xml"
     version_str = "Inflection KWS test set 0.1."
-    write_kwlist_xml(babel_code, covered_lexemes, ecf_fn, version_str)
+    #write_kwlist_xml(babel_code, covered_lexemes, ecf_fn, version_str)
+
+
+
+    # Create an inverted index to assess how often an inflection occurs in
+    # multiple lexemes.
+    # TODO discard lexemes that include ambiguous inflections from our test
+    # set.
+    ambiguous_inflections = []
+    ambiguous_forms = set()
+    inflection2lemma = defaultdict(set)
+    for lemma in covered_lexemes:
+        for inflection in covered_lexemes[lemma]:
+            inflection2lemma[inflection].add(lemma)
+            if len(inflection2lemma[inflection]) > 1:
+                ambiguous_inflections.append(inflection)
+                ambiguous_forms.add(inflection)
+                print(f"ambiguous inflection->lemmas: {inflection}->{inflection2lemma[inflection]}")
+    print(f"len(ambiguous_inflections) = {len(ambiguous_inflections)}")
+    print(f"len(ambiguous_forms) = {len(ambiguous_forms)}")
+    print(f"total_inflections: {total_inflections}")
 
 def write_kwlist_xml(babel_code: str,
                      paradigms: Dict[str, Iterable[str]],
