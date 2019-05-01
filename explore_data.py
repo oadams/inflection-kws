@@ -3,9 +3,30 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, Union
 
-babel2iso = {"206":"zul",
-             "202":"swc",}
-babel2name = {"206":"zulu", "202":"swahili"}
+babel2iso = {
+             "103":"ben",
+             "104":"pus",
+             "105":"tur",
+             "202":"swc",
+             "205":"kmr",
+             "206":"zul",
+             "302":"kaz",
+             "303":"tel",
+             "304":"lit",
+             "404":"kat",
+            }
+babel2name = {
+             "103":"bengali",
+             "104":"pashto",
+             "105":"turkish",
+             "202":"swahili",
+             "205":"kurmanji",
+             "206":"zulu",
+             "302":"kazakh",
+             "303":"telugu",
+             "304":"lithuanian",
+             "404":"georgian",
+             }
 
 def load_unimorph_inflections(iso_code):
     """ Given an ISO 639-3 language code, returns a mapping from lemmas of that
@@ -14,24 +35,26 @@ def load_unimorph_inflections(iso_code):
 
     # TODO Need to assert that each lemma only occurs in one contiguous
     # grouping.
+    print(f"Loading inflections for {iso_code}")
 
-    inflections = defaultdict(list)
-    lang_path = Path("raw/unimorph/{}/{}".format(lang, lang))
+    inflections = defaultdict(set)
+    lang_path = Path("raw/unimorph/{}/{}".format(iso_code, iso_code))
     lemma = None
-    seen_lemmas = set()
+    #seen_lemmas = set()
     with lang_path.open() as f:
         for line in f:
-            sp = line.split()
+            sp = line.split("\t")
             if len(sp) == 3:
                 lemma, inflection, bundle = sp
-                if lemma in seen_lemmas:
-                    assert False
-                inflections[lemma].append((inflection, bundle))
-            else:
+                #if lemma in seen_lemmas:
+                #    print(f"Seen lemma: {lemma}")
+                #    assert False
+                inflections[lemma].add((inflection, bundle))
+            #else:
                 # Then it's a blank line or something else and we can say we've
                 # "seen" the lemma. Now any subsequent time we see it would be
                 # a lemma-ambiguity wich might break subsequent code.
-                seen_lemmas.add(lemma)
+            #    seen_lemmas.add(lemma)
     return inflections
 
 def load_rttm_toks(babel_code, remove_lang_suffix=True):
@@ -51,6 +74,15 @@ def load_rttm_toks(babel_code, remove_lang_suffix=True):
 
 def load_dev_toks(babel_code):
     babel_dev_dir = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/release-current/conversational/dev/transcription")
+    if babel_code == "202":
+        babel_dev_dir = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/IARPA-babel{babel_code}b-v1.0d-build/BABEL_OP2_{babel_code}/conversational/dev/transcription")
+    elif babel_code in ["205", "302", "303"]:
+        babel_dev_dir = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/IARPA-babel{babel_code}b-v1.0a-build/BABEL_OP2_{babel_code}/conversational/reference_materials/")
+    elif babel_code in ["304"]:
+        babel_dev_dir = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/IARPA-babel{babel_code}b-v1.0b-build/BABEL_OP2_{babel_code}/conversational/reference_materials/")
+    elif babel_code in ["404"]:
+        babel_dev_dir = Path(f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/conversational/reference_materials/")
+
     babel_dev_toks = []
     for transcript_path in babel_dev_dir.glob("*.txt"):
         with transcript_path.open() as f:
@@ -67,6 +99,14 @@ def load_lexicon(babel_code):
     """ Loads the Babel lexicon for a given language. """
 
     lang_path = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/release-current/conversational/reference_materials/")
+    if babel_code == "202":
+        lang_path = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/IARPA-babel{babel_code}b-v1.0d-build/BABEL_OP2_202/conversational/reference_materials/")
+    elif babel_code in ["205", "302", "303"]:
+        lang_path = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/IARPA-babel{babel_code}b-v1.0a-build/BABEL_OP2_{babel_code}/conversational/reference_materials/")
+    elif babel_code in ["304"]:
+        lang_path = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/IARPA-babel{babel_code}b-v1.0b-build/BABEL_OP2_{babel_code}/conversational/reference_materials/")
+    elif babel_code in ["404"]:
+        lang_path = Path(f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/conversational/reference_materials/")
     lexicon_subtrain_path = lang_path / "lexicon.sub-train.txt"
     lexicon_path = lang_path / "lexicon.txt"
 
@@ -74,10 +114,10 @@ def load_lexicon(babel_code):
     with open(lexicon_path) as f:
         for line in f:
             types.add(line.split("\t")[0])
-    subtrain_types = set()
-    with open(lexicon_subtrain_path) as f:
-        for line in f:
-            subtrain_types.add(line.split("\t")[0])
+    #subtrain_types = set()
+    #with open(lexicon_subtrain_path) as f:
+    #    for line in f:
+    #        subtrain_types.add(line.split("\t")[0])
 
     # Let's assess coverage of the train/dev data with these lexicons.
     dev_toks = load_dev_toks(babel_code)
@@ -188,8 +228,9 @@ def construct_test_set(babel_code):
                 ambiguous_forms.add(inflection)
                 print(f"ambiguous inflection->lemmas: {inflection}->{inflection2lemma[inflection]}")
     print(f"len(ambiguous_inflections) = {len(ambiguous_inflections)}")
-    print(f"len(ambiguous_forms) = {len(ambiguous_forms)}")
-    print(f"total_inflections: {total_inflections}")
+    #print(f"len(ambiguous_forms) = {len(ambiguous_forms)}")
+    print(f"total_seen_inflections: {total_seen_inflections}")
+    print(f"%age: {100*len(ambiguous_inflections)/total_seen_inflections}")
 
 def write_kwlist_xml(babel_code: str,
                      paradigms: Dict[str, Iterable[str]],
@@ -357,6 +398,9 @@ if __name__ == "__main__":
     #explore_babel_unimorph("202")
     #compare_rttm_unimorph("206")
     #load_lexicon("206")
-    construct_test_set("206")
+    for babel_code in babel2name:
+        if babel2name[babel_code] not in ["pashto", "swahili"]:
+            construct_test_set(babel_code)
+            input()
 
     #load_cognate_data()
