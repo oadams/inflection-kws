@@ -372,6 +372,10 @@ def add_lang_suffixes_to_tokens(transcription_path, lang):
 
 def force_align(lang, args):
     """
+
+    Note that if the evaluation keywords are in the dev10h set, there's no need
+    to do this force_align / generate_rttm() step, because there are gold
+    standard RTTM files listed in conf/lang.conf.
     """
 
     nj = str(args.decode_nj)
@@ -530,7 +534,7 @@ if __name__ == "__main__":
     # prepare_test_ivectors(), and decode(). A third --stage kws would create
     # an index given a specific keyword list and score.
 
-    test_lang = "202"
+    test_lang = "206"
 
     """
     ##### Preparing decoding #####

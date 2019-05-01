@@ -93,8 +93,10 @@ def load_garrett_hypotheses(iso_code):
             else:
                 hyps[lemma] = {bundle: [inflection_hyp]}
 
-    import pprint
-    pprint.pprint(hyps)
+    #import pprint
+    #pprint.pprint(hyps)
+
+    return hyps
 
 def construct_test_set(babel_code):
     """ Constructs a KW test set
@@ -149,6 +151,8 @@ def construct_test_set(babel_code):
 
 
     # Now additionally constrain based on Garrett's set.
+    hyps = load_garrett_hypotheses(babel2iso[babel_code])
+    print(len(set(hyps.keys()).intersection(set(covered_lexemes.keys()))))
 
 def compare_rttm_unimorph(babel_code):
 
@@ -279,7 +283,6 @@ if __name__ == "__main__":
     #explore_babel_unimorph("202")
     #compare_rttm_unimorph("206")
     #load_lexicon("206")
-    #construct_test_set("206")
-    load_garrett_hypotheses("zul")
+    construct_test_set("206")
 
     #load_cognate_data()
