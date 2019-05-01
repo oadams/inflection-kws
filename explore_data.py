@@ -1,6 +1,7 @@
 """ Explore the data. """
 from collections import defaultdict
 from pathlib import Path
+from typing import Dict, Iterable, Union
 
 babel2iso = {"206":"zul",
              "202":"swc",}
@@ -153,6 +154,48 @@ def construct_test_set(babel_code):
     # Now additionally constrain based on Garrett's set.
     hyps = load_garrett_hypotheses(babel2iso[babel_code])
     print(len(set(hyps.keys()).intersection(set(covered_lexemes.keys()))))
+
+    # TODO Not sure where this comes from, but it needs to generalize.
+    ecf_fn = "IARPA-babel404b-v1.0a_conv-dev.ecf.xml"
+    version_str = "Inflection KWS test set 0.1."
+    write_kwlist_xml(babel_code, covered_lexemes, ecf_fn, version_str)
+
+def write_kwlist_xml(babel_code: str,
+                     paradigms: Dict[str, Iterable[str]],
+                     ecf_fn: Union[str,Path],
+                     version_str: str) -> None:
+    """ Writes a Keyword list XML file of words to search for.
+
+        paradigms is a dictionary mapping from a lemma to a paradigm
+        where each element of the paradigms is a string denoting one of the
+        word forms associated with the lexeme.
+
+        Each KW is given an ID of format inspired but distinct from the
+        standard Babel KW lists. It takes the form:
+            KW<babel_code>-<paradigm-id>-<wordform-id>
+        so that one can see which wordforms correspond to the same
+        paradigm/lexeme.
+    """
+
+    xml_tags = []
+    # Opening tag of document
+    xml_tags.append(f"<kwlist ecf_filename=\"{ecf_fn}\""
+                    f" language=\"{babel2name[babel_code]}\""
+                    f" encoding=\"UTF-8\""
+                    f" compareNormalize=\"\""
+                    f" version=\"{version_str}\"")
+
+    # Write all the inflected forms as keywords.
+    for paradigm_id, lemma in enumerate(sorted(list(paradigms.keys()))):
+        for inflection_id, inflection in enumerate(sorted(list(paradigms[lemma]))):
+            kwid = f"KW-{paradigm_id}-{inflection_id}"
+            xml_tag = (f"<kw kwid=\"{kwid}\">\n\t"
+                       f"<kwtext>{inflection}</kwtext>\n"
+                       "</kw>")
+            xml_tags.append(xml_tag)
+
+    xml_tags.append("</kwlist>")
+    print("\n".join(xml_tags))
 
 def compare_rttm_unimorph(babel_code):
 
