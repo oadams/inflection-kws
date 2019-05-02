@@ -131,6 +131,9 @@ def load_lexicon(babel_code):
 def load_garrett_hypotheses(iso_code):
 
     hyps_path = Path(f"/export/a14/yarowsky-lab/gnicolai/G2PHypotheses/{iso_code}.nouns.out")
+    if iso_code == "swc":
+        # Then use *swh* *verbs* instead.
+        hyps_path = Path(f"/export/a14/yarowsky-lab/gnicolai/G2PHypotheses/swh.verbs.out")
     hyps = {}
     with open(hyps_path) as f:
         for line in f:
@@ -232,10 +235,25 @@ def construct_test_set(babel_code):
     print(f"total_seen_inflections: {total_seen_inflections}")
     print(f"%age: {100*len(ambiguous_inflections)/total_seen_inflections}")
 
-def write_kwlist_xml(babel_code: str,
-                     paradigms: Dict[str, Iterable[str]],
-                     ecf_fn: Union[str,Path],
-                     version_str: str) -> None:
+    filtered_lexemes = dict()
+    for lemma in covered_lexemes:
+        contains_ambiguous_inflection = False
+        for inflection in covered_lexemes[lemma]:
+            if inflection in ambiguous_forms:
+                contains_ambiguous_inflection = True
+                break
+        if not contains_ambiguous_inflection:
+            filtered_lexemes[lemma] = set(covered_lexemes[lemma])
+
+    print(f"Had {len(covered_lexemes)} lexemes; now has {len(filtered_lexemes)}")
+    with open(f"{babel_code}.kwlist.xml", "w") as f:
+        print(kwlist_xml(babel_code, filtered_lexemes, ecf_fn, version_str),
+              file=f)
+
+def kwlist_xml(babel_code: str,
+               paradigms: Dict[str, Iterable[str]],
+               ecf_fn: Union[str,Path],
+               version_str: str) -> str:
     """ Writes a Keyword list XML file of words to search for.
 
         paradigms is a dictionary mapping from a lemma to a paradigm
@@ -267,7 +285,7 @@ def write_kwlist_xml(babel_code: str,
             xml_tags.append(xml_tag)
 
     xml_tags.append("</kwlist>")
-    print("\n".join(xml_tags))
+    return "\n".join(xml_tags)
 
 def compare_rttm_unimorph(babel_code):
 
@@ -399,7 +417,8 @@ if __name__ == "__main__":
     #compare_rttm_unimorph("206")
     #load_lexicon("206")
     for babel_code in babel2name:
-        if babel2name[babel_code] not in ["pashto", "swahili"]:
+        #if babel2name[babel_code] not in ["pashto"]:
+        if babel2name[babel_code] in ["swahili"]:
             construct_test_set(babel_code)
             input()
 
