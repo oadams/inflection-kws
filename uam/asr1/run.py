@@ -26,6 +26,9 @@ import subprocess
 from subprocess import run
 import sys
 
+import babel_iso
+import inflections
+
 # TODO Set up logging. This will require some thought on when to simply
 # redirect the output of subprocesses into a logfile, versus when to write my
 # own log statements.
@@ -65,7 +68,7 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def prepare_langs(train_langs, recog_langs):
+def prepare_langs(train_langs, recog_langs, filter_morph_hyps=True):
     """Prepares training data.
 
        train_langs is the set of languages that the acoustic model is to be
@@ -73,6 +76,7 @@ def prepare_langs(train_langs, recog_langs):
        recognize. Language models get trained on these languages.
     """
 
+    """
     # NOTE It's possible for recog data being prepared to fail, and the
     # setup_languages.sh script will fail silently. This has been the case for
     # Zulu.
@@ -83,14 +87,74 @@ def prepare_langs(train_langs, recog_langs):
             "--langs", " ".join(train_langs),
             "--recog", " ".join(recog_langs)]
     run(args, check=True)
+    """
+
+    # 
+    if filter_morph_hyps:
+        # Then we need to run utils/prepare_lang.sh again, after removing words
+        # from lexicon.txt
+
+        for babel_code in recog_langs:
+            # TODO Generalize this beyond nouns
+
+            iso_code = babel_iso.babel2iso[babel_code]
+
+            # Read in a list of inflections.
+            # TODO generalize this beyond DTL
+            dtl_paradigms = inflections.load_dtl_hypotheses(iso_code)
+
+            dict_uni = Path(f"data/{babel_code}_test/data/dict_universal")
+            # TODO Generalize this filename so that other inflection hypotheses
+            # can be used
+            dict_uni_filt = Path(f"data/{babel_code}_test/data/dict_universal_filt_dtl")
+            # Create a new dict_universal that filters only for inflections
+            # that were hypothesized
+
+            dtl_inflections = []
+            for lemma in dtl_paradigms:
+                for bundle in dtl_paradigms[lemma]:
+                    dtl_inflections.extend(dtl_paradigms[lemma][bundle])
+            dtl_inflections = set(dtl_inflections)
+
+            # First copy the data
+            args = ["rsync", "-av",
+                    str(dict_uni)+"/", str(dict_uni_filt)]
+            run(args, check=True)
+            args = ["rm", "-r", str(dict_uni_filt / "tmp.lang")]
+            run(args, check=True)
+            # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
+            for fn in ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]:
+                with open(dict_uni / fn) as dict_f, open(dict_uni_filt / fn, "w") as dict_filt_f:
+                    for line in dict_f:
+                        ortho, *_ = line.split("\t")
+                        if ortho.startswith("<") and ortho.endswith(">"):
+                            print(line, file=dict_filt_f, end="")
+                            continue
+                        if ortho in dtl_inflections:
+                            print(line, file=dict_filt_f, end="")
+                        # TODO We actually need to print words that were in the
+                        # lexicon but not the eval set... so we have a
+                        # dependency on the eval set here for oracle stuff.
+
+            """
+            lang_uni_filt = Path(f"data/{babel_code}_test/data/lang_universal_filt_dtl")
+            # Create a lang directory based on that filtered dictionary.
+            args = ["./utils/prepare_lang",
+                    "--share-silence-phones", "true",
+                    "--phone-symbol-table", "data/lang_universal/phones.txt",
+                    str(dict_uni_filt), "<unk>",
+                    str(dict_uni_filt / "tmp.lang"),
+                    str(lang_uni_filt)]
+            run(args, check=True)
+            """
+
+            # Need to create a language model too. Can just copy the unfiltered
+            # one?
 
 def prepare_align():
     """Prepares training data by aligning audio data to text."""
     # NOTE Untested
-
-    # HMM-GMM training to get alignments between audio and text.
-    args = ["./local/get_alignments.sh"]
-    run(args, check=True)
+# HMM-GMM training to get alignments between audio and text.  args = ["./local/get_alignments.sh"] run(args, check=True)
 
     # Re-segment training data to select only the audio that matches the
     # transcripts.
@@ -531,10 +595,10 @@ if __name__ == "__main__":
     # NOTE We prepare pronunciation lexicons and LMS for the languages below,
     # but don't use acoustic data.
     recog_langs = train_langs + ["107", "201", "307", "404"]
-    recog_langs = ["202", "206"]
+    recog_langs = ["404"]
 
     # The core steps in the pipeline.
-    #prepare_langs(train_langs, recog_langs)
+    prepare_langs(train_langs, recog_langs)
 
     #prepare_align()
     #train()
@@ -566,8 +630,10 @@ if __name__ == "__main__":
     generate_rttm(test_lang, args)
     """
 
+    """
     custom_kwlist=True
     ##### KWS #####
     #prepare_kws(test_lang, custom_kwlist=custom_kwlist)
     kws(test_lang, env, custom_kwlist=custom_kwlist)
     #wer_score(test_lang, env)
+    """
