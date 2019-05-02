@@ -210,7 +210,7 @@ def construct_test_set(babel_code):
     print(len(set(hyps.keys()).intersection(set(covered_lexemes.keys()))))
 
     # TODO Not sure where this comes from, but it needs to generalize.
-    ecf_fn = "IARPA-babel404b-v1.0a_conv-dev.ecf.xml"
+    ecf_fn = f"To be replaced w/ the {babel_code} *.ecf.xml"
     version_str = "Inflection KWS test set 0.1."
     #write_kwlist_xml(babel_code, covered_lexemes, ecf_fn, version_str)
 
@@ -273,7 +273,7 @@ def kwlist_xml(babel_code: str,
                     f" language=\"{babel2name[babel_code]}\""
                     f" encoding=\"UTF-8\""
                     f" compareNormalize=\"\""
-                    f" version=\"{version_str}\"")
+                    f" version=\"{version_str}\">")
 
     # Write all the inflected forms as keywords.
     for paradigm_id, lemma in enumerate(sorted(list(paradigms.keys()))):
@@ -417,9 +417,8 @@ if __name__ == "__main__":
     #compare_rttm_unimorph("206")
     #load_lexicon("206")
     for babel_code in babel2name:
-        #if babel2name[babel_code] not in ["pashto"]:
-        if babel2name[babel_code] in ["swahili"]:
+        if babel2name[babel_code] not in ["pashto"]:
             construct_test_set(babel_code)
-            input()
+            #input()
 
     #load_cognate_data()

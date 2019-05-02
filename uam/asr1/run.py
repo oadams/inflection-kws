@@ -263,10 +263,8 @@ def wer_score(lang, env):
             data_dir, lang_dir, decode_dir]
     run(args, check=True)
 
-def prepare_kws(lang):
+def prepare_kws(lang, custom_kwlist=True):
     """ Establish KWS lists and ground truth."""
-
-    # TODO Implement functionality for creating KW lists when I move beyond the standard babel sets.
 
     # NOTE For now I'm assuming we're using official Babel KWS gear.
     # Flag that decides whether to use the full language pack (FLP) or the
@@ -284,17 +282,25 @@ def prepare_kws(lang):
     rttm_file = babel_env["dev10h_rttm_file"]
     ecf_file = babel_env["dev10h_ecf_file"]
 
-    # NOTE Assume the KW list files are in the same directory as the
-    # RTTM files. For now, just use KWlist 3.
-    # TODO We'll want to make this more than just KWS list 3.. this will
-    # require data/404_test/data/dev10h.pem/kws to become kws_kwlist{1,2,3,4},
-    # like in the babel/s5d script.
-    for kwlist_path in Path(rttm_file).parent.glob("*kwlist3.xml"):
-        kwlist_file = str(kwlist_path)
     lang_dir = f"data/{test_set}/data/lang_universal"
     data_dir = f"data/{test_set}/data/dev10h.pem"
+
+    # Block for using our own keyword lists.
+    if custom_kwlist:
+        # TODO Don't hardcode the paths. Or at least hardcode good paths.
+        kwlist_file = f"../../{lang}.kwlist.xml"
+        out_dir = f"{data_dir}/kwset_custom"
+    else:
+        # NOTE Assume the KW list files are in the same directory as the
+        # RTTM files. For now, just use KWlist 3.
+        # TODO We'll want to make this more than just KWS list 3.. this will
+        # require data/404_test/data/dev10h.pem/kws to become kws_kwlist{1,2,3,4},
+        # like in the babel/s5d script.
+        for kwlist_path in Path(rttm_file).parent.glob("*kwlist3.xml"):
+            kwlist_file = str(kwlist_path)
+        out_dir = f"{data_dir}/kws"
+
     # TODO this will also have to generalize to multiple kws sets too.
-    out_dir = f"{data_dir}/kws"
     args = ["local/search/setup.sh",
             ecf_file,
             rttm_file,
@@ -315,7 +321,7 @@ def prepare_kws(lang):
     run(f"fsts-union scp:{out_dir}/tmp.2/keywords.sorted.scp ark,t:\"|gzip -c >{out_dir}/keywords.fsts.gz\"",
         shell=True, check=True)
 
-def kws(lang, env):
+def kws(lang, env, custom_kwlist=True):
     """Run keyword search.
 
        See kaldi/egs/babel/s5d/local/search/run_search.sh for more details.
@@ -330,6 +336,11 @@ def kws(lang, env):
     # in the PATH or something, so using hardcoded utils/queue.pl for now.
     cmd = "utils/queue.pl --mem 10G"
 
+    extraid=""
+    if custom_kwlist:
+        # Then local/search/search.sh will create a "kws_custom" dir.
+        extraid = "custom"
+
     # NOTE Need to rm .done.index if I need to re-run indexing. Actually TODO, in
     # general for all these functions I should take a kwarg flag that can be
     # used to force all the processing for the given function from scratch.
@@ -339,6 +350,7 @@ def kws(lang, env):
             #"--max-states",
             #"--min-lmwt",
             #"--max-lmwt",
+            "--extraid", extraid,
             lang_dir, data_dir, decode_dir]
     run(args, check=True)
 
@@ -534,7 +546,7 @@ if __name__ == "__main__":
     # prepare_test_ivectors(), and decode(). A third --stage kws would create
     # an index given a specific keyword list and score.
 
-    test_lang = "206"
+    test_lang = "404"
 
     """
     ##### Preparing decoding #####
@@ -548,13 +560,14 @@ if __name__ == "__main__":
     decode(test_lang, args, env)
     """
 
-    ##### Creating KW List #####
+    """
+    ##### Creating RTTM #####
     force_align(test_lang, args)
     generate_rttm(test_lang, args)
+    """
 
-    """
+    custom_kwlist=True
     ##### KWS #####
-    prepare_kws(test_lang)
-    kws(test_lang, env)
-    wer_score(test_lang, env)
-    """
+    #prepare_kws(test_lang, custom_kwlist=custom_kwlist)
+    kws(test_lang, env, custom_kwlist=custom_kwlist)
+    #wer_score(test_lang, env)
