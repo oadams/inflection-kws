@@ -119,8 +119,9 @@ def prepare_langs(train_langs, recog_langs, filter_morph_hyps=True):
             # TODO Generalize this filename so that other inflection hypotheses
             # can be used
             dict_uni_filt = Path(f"data/{babel_code}_test/data/dict_universal_filt_dtl")
-            # Create a new dict_universal that filters only for inflections
-            # that were hypothesized
+            # Now we Create a new dict_universal/ directory that filters only
+            # for inflections that were hypothesized, or were not in the
+            # evaluation set lexemes.
 
             dtl_inflections = []
             for lemma in dtl_paradigms:
@@ -152,10 +153,9 @@ def prepare_langs(train_langs, recog_langs, filter_morph_hyps=True):
                         ortho, *_ = line.split("\t")
                         if ortho.startswith("<") and ortho.endswith(">"):
                             print(line, file=dict_filt_f, end="")
-                            continue
-                        if ortho in dtl_inflections:
+                        elif ortho in dtl_inflections:
                             print(line, file=dict_filt_f, end="")
-                        if ortho not in eval_inflection_set:
+                        elif ortho not in eval_inflection_set:
                             print(line, file=dict_filt_f, end="")
 
             """
