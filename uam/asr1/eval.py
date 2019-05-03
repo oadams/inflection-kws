@@ -1,5 +1,42 @@
 """ Creates an evaluation set. """
 
+# The dev data is in inconsistently named directories depending on the
+# language, so here's a map from the Babel code to the dev set directory.
+DEV_DIRS = {}
+DEV_DIRS["202"] = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+                       f"IARPA-babel{babel_code}b-v1.0d-build/BABEL_OP2_{babel_code}/"
+                       "conversational/dev/transcription")
+for babel_code in ["205", "302", "303"]:
+    DEV_DIRS[babel_code] Path(
+            f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+            f"IARPA-babel{babel_code}b-v1.0a-build/BABEL_OP2_{babel_code}/"
+            "conversational/reference_materials/")
+DEV_DIRS["304"] = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+                       f"IARPA-babel{babel_code}b-v1.0b-build/BABEL_OP2_{babel_code}/"
+                       "conversational/reference_materials/")
+DEV_DIRS["404"] = Path(f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/"
+                       f"conversational/reference_materials/")
+
+def load_babel_dev_toks(babel_code, dev_dirs=DEV_DIRS):
+    """ Returns a list of tokens seen in the Babel dev10h set.
+
+        This is needed so that we can construct a keyword evaluation set.
+    """
+
+    babel_dev_dir = dev_dirs[babel_code]
+    babel_dev_toks = []
+    transc_paths = sorted([transc_path for transc_path in babel_dev_dir.glob("*.txt")])
+    for transc_path in transc_paths:
+        with transc_path.open() as f:
+            for line in f:
+                babel_dev_toks.extend(
+                    [tok.strip().lower() for tok in line.split()
+                                         if not (tok.startswith("[")
+                                             and tok.endswith("]"))
+                                         and not (tok.startswith("<")
+                                              and tok.endswith(">"))])
+    return babel_dev_toks
+
 def construct_test_set(babel_code):
     """ Constructs a KW test set.
 
@@ -25,7 +62,7 @@ def construct_test_set(babel_code):
 
     # Find all words that occur in the Babel dev10h set (ie. forms that we
     # know actually occur in the speech)
-    dev_toks = load_dev_toks(babel_code)
+    dev_toks = load_babel_dev_toks(babel_code)
     dev_types = set(dev_toks)
 
     # Load the ground-truth Babel lexicon, our oracle.
