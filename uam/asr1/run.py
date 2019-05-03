@@ -87,6 +87,8 @@ def prepare_langs(train_langs, recog_langs, filter_morph_hyps=True):
        should actually just take the hypothesized inflection dictionary.
     """
 
+    # TODO Break this function into smaller pieces.
+
     """
     # NOTE It's possible for recog data being prepared to fail, and the
     # setup_languages.sh script will fail silently. This has been the case for
@@ -158,17 +160,16 @@ def prepare_langs(train_langs, recog_langs, filter_morph_hyps=True):
                         elif ortho not in eval_inflection_set:
                             print(line, file=dict_filt_f, end="")
 
-            """
-            lang_uni_filt = Path(f"data/{babel_code}_test/data/lang_universal_filt_dtl")
+            lang_uni_filt = Path(
+                    f"data/{babel_code}_test/data/lang_universal_filt_dtl")
             # Create a lang directory based on that filtered dictionary.
-            args = ["./utils/prepare_lang",
+            args = ["./utils/prepare_lang.sh",
                     "--share-silence-phones", "true",
                     "--phone-symbol-table", "data/lang_universal/phones.txt",
                     str(dict_uni_filt), "<unk>",
                     str(dict_uni_filt / "tmp.lang"),
                     str(lang_uni_filt)]
             run(args, check=True)
-            """
 
             # Need to create a language model too. Can just copy the unfiltered
             # one?
