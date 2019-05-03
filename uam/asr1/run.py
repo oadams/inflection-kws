@@ -350,6 +350,7 @@ def decode(lang, args, env, filt_dtl=True):
     # The directory that contains
     # NOTE THe prefix exp/chain_cleaned/tdnn_sp/ needs a single point of control.
     # TODO Generalize this flag beyond DTL.
+    decode_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_decode"
     if filt_dtl:
         decode_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_decode_filt_dtl"
 
@@ -481,21 +482,22 @@ def kws(lang, env, re_index=True, custom_kwlist=True, filt_dtl=False):
     # in the PATH or something, so using hardcoded utils/queue.pl for now.
     cmd = "utils/queue.pl --mem 10G"
 
+    kw_dir = Path(f"{decode_dir}/kws")
     extraid=""
     if custom_kwlist:
         # Then local/search/search.sh will create a "kws_custom" dir.
         extraid = "custom"
+        kw_dir = Path(f"{decode_dir}/kwset_custom")
+        if filt_dtl:
+            kw_dir = Path(f"{decode_dir}/kwset_custom_filt_dtl")
 
     # NOTE Need to rm .done.index if I need to re-run indexing. Actually TODO, in
     # general for all these functions I should take a kwarg flag that can be
     # used to force all the processing for the given function from scratch.
-    if re_index:
-        if custom_kwlist:
-            args = ["rm", f"{decode_dir}/kwset_custom/.done.index"]
-            run(args, check=True)
-        else:
-            args = ["rm", f"{decode_dir}/kws/.done.index"]
-            run(args, check=True)
+    done_index = kw_dir / ".done.index"
+    if re_index and done_index.exists():
+        args = ["rm", str(done_index)]
+        run(args, check=True)
 
     args = ["./local/search/search.sh",
             "--cmd", cmd,
@@ -714,11 +716,13 @@ if __name__ == "__main__":
     decode(args.test_lang, args, env, filt_dtl=args.filt_dtl)
 
     ##### KWS #####
-    prepare_kws(args.test_lang, custom_kwlist=custom_kwlist)
+    prepare_kws(args.test_lang,
+                filt_dtl=args.filt_dtl,
+                custom_kwlist=args.custom_kwlist)
     kws(args.test_lang, env,
         custom_kwlist=args.custom_kwlist,
         filt_dtl=args.filt_dtl)
-    wer_score(args.test_lang, env)
+    #wer_score(args.test_lang, env)
 
     # NOTE If you want to create another evaluation set that's not based off of
     # the Babel dev10h set, then you need to force align your speech and
