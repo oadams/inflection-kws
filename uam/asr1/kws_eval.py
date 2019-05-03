@@ -1,25 +1,36 @@
 """ Creates an evaluation set. """
 
+from collections import defaultdict
 import logging
+from pathlib import Path
+from typing import Dict, Iterable, Union
 
+from babel_iso import babel2name, babel2iso
 import inflections
 
 # The dev data is in inconsistently named directories depending on the
 # language, so here's a map from the Babel code to the dev set directory.
 RESOURCE_DIRS = {}
-RESOURCE_DIRS["202"] = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
-                       f"IARPA-babel{babel_code}b-v1.0d-build/BABEL_OP2_{babel_code}/"
-                       "conversational/")
+
+for babel_code in ["202"]:
+    RESOURCE_DIRS[babel_code] = Path(
+            f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+            f"IARPA-babel{babel_code}b-v1.0d-build/BABEL_OP2_{babel_code}/"
+            "conversational/")
 for babel_code in ["205", "302", "303"]:
-    RESOURCE_DIRS[babel_code] Path(
+    RESOURCE_DIRS[babel_code] = Path(
             f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
             f"IARPA-babel{babel_code}b-v1.0a-build/BABEL_OP2_{babel_code}/"
             "conversational/")
-RESOURCE_DIRS["304"] = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
-                       f"IARPA-babel{babel_code}b-v1.0b-build/BABEL_OP2_{babel_code}/"
-                       "conversational/")
-RESOURCE_DIRS["404"] = Path(f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/"
-                       f"conversational/")
+for babel_code in ["304"]:
+    RESOURCE_DIRS[babel_code] = Path(
+            f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+            f"IARPA-babel{babel_code}b-v1.0b-build/BABEL_OP2_{babel_code}/"
+            "conversational/")
+for babel_code in ["404"]:
+    RESOURCE_DIRS[babel_code] = Path(
+            f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/"
+            f"conversational/")
 
 def load_babel_dev_toks(babel_code, resource_dirs=RESOURCE_DIRS):
     """ Returns a list of tokens seen in the Babel dev10h set.
@@ -44,7 +55,7 @@ def load_babel_dev_toks(babel_code, resource_dirs=RESOURCE_DIRS):
 def load_lexicon(babel_code, resource_dirs=RESOURCE_DIRS):
     """ Loads the Babel lexicon for a given language. """
 
-    lexicon_path = resouce_dirs[babel_code] / "reference_materials/lexicon.txt"
+    lexicon_path = resource_dirs[babel_code] / "reference_materials/lexicon.txt"
 
     types = set()
     with open(lexicon_path) as f:
@@ -53,7 +64,7 @@ def load_lexicon(babel_code, resource_dirs=RESOURCE_DIRS):
 
     return types
 
-def load_unimorph_inflections(iso_code):
+def load_unimorph_inflections(iso_code, unimorph_dir=Path("../../raw/unimorph")):
     """ Given an ISO 639-3 language code, returns a mapping from lemmas of that
         language to list of tuples of <inflection, unimorph bundle>.
     """
@@ -61,9 +72,9 @@ def load_unimorph_inflections(iso_code):
     logging.info(f"Loading inflections for {iso_code}")
 
     inflections = defaultdict(set)
-    lang_path = Path("raw/unimorph/{}/{}".format(iso_code, iso_code))
+    lang_path = unimorph_dir / f"{iso_code}/{iso_code}"
     lemma = None
-    with lang_path.open() as f:
+    with open(lang_path) as f:
         for line in f:
             sp = line.split("\t")
             if len(sp) == 3:
@@ -71,7 +82,44 @@ def load_unimorph_inflections(iso_code):
                 inflections[lemma].add((inflection, bundle))
     return inflections
 
-def construct_test_set(babel_code, write_to_fn=False):
+def kwlist_xml(babel_code: str,
+               paradigms: Dict[str, Iterable[str]],
+               ecf_fn: Union[str,Path],
+               version_str: str) -> str:
+    """ Writes a Keyword list XML file of words to search for.
+
+        paradigms is a dictionary mapping from a lemma to a paradigm
+        where each element of the paradigms is a string denoting one of the
+        word forms associated with the lexeme.
+
+        Each KW is given an ID of format inspired but distinct from the
+        standard Babel KW lists. It takes the form:
+            KW<babel_code>-<paradigm-id>-<wordform-id>
+        so that one can see which wordforms correspond to the same
+        paradigm/lexeme.
+    """
+
+    xml_tags = []
+    # Opening tag of document
+    xml_tags.append(f"<kwlist ecf_filename=\"{ecf_fn}\""
+                    f" language=\"{babel2name[babel_code]}\""
+                    f" encoding=\"UTF-8\""
+                    f" compareNormalize=\"\""
+                    f" version=\"{version_str}\">")
+
+    # Write all the inflected forms as keywords.
+    for paradigm_id, lemma in enumerate(sorted(list(paradigms.keys()))):
+        for inflection_id, inflection in enumerate(sorted(list(paradigms[lemma]))):
+            kwid = f"KW-{paradigm_id}-{inflection_id}"
+            xml_tag = (f"<kw kwid=\"{kwid}\">\n\t"
+                       f"<kwtext>{inflection}</kwtext>\n"
+                       "</kw>")
+            xml_tags.append(xml_tag)
+
+    xml_tags.append("</kwlist>")
+    return "\n".join(xml_tags)
+
+def keyword_inflections(babel_code, write_to_fn=False):
     """ Constructs a KW test set.
 
         The approach taken is to consider Unimorph paradigms and inflections
@@ -139,8 +187,8 @@ def construct_test_set(babel_code, write_to_fn=False):
     # lemmas that were being used to generate inflections, not the inflections
     # themselves.
     dtl_hyps = inflections.load_dtl_hypotheses(babel2iso[babel_code])
-    logging.info("Intersection of lemmas DTL generated over and the covered
-            lexemes: {len(set(dtl_hyps.keys()).intersection(set(covered_lexemes.keys()))))")
+    logging.info("Intersection of lemmas DTL generated over and the covered"
+                f"lexemes: {len(set(dtl_hyps.keys()).intersection(set(covered_lexemes.keys())))}")
 
     # TODO Not sure where this comes from, but it needs to generalize.
     ecf_fn = f"To be replaced w/ the {babel_code} *.ecf.xml"
@@ -175,9 +223,11 @@ def construct_test_set(babel_code, write_to_fn=False):
             filtered_lexemes[lemma] = set(covered_lexemes[lemma])
     logging.info(f"Had {len(covered_lexemes)} lexemes; now has {len(filtered_lexemes)}")
 
+    eval_lexemes = filtered_lexemes
+
     # Write to a KW list file.
     if write_to_fn:
         with open(f"{babel_code}.kwlist.xml", "w") as f:
-            print(kwlist_xml(babel_code, filtered_lexemes, ecf_fn, version_str),
+            print(kwlist_xml(babel_code, eval_lexemes, ecf_fn, version_str),
                   file=f)
-    return filtered_lexemes
+    return eval_lexemes
