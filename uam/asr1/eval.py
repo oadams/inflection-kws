@@ -1,29 +1,33 @@
 """ Creates an evaluation set. """
 
+import logging
+
+import inflections
+
 # The dev data is in inconsistently named directories depending on the
 # language, so here's a map from the Babel code to the dev set directory.
-DEV_DIRS = {}
-DEV_DIRS["202"] = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+RESOURCE_DIRS = {}
+RESOURCE_DIRS["202"] = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
                        f"IARPA-babel{babel_code}b-v1.0d-build/BABEL_OP2_{babel_code}/"
-                       "conversational/dev/transcription")
+                       "conversational/")
 for babel_code in ["205", "302", "303"]:
-    DEV_DIRS[babel_code] Path(
+    RESOURCE_DIRS[babel_code] Path(
             f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
             f"IARPA-babel{babel_code}b-v1.0a-build/BABEL_OP2_{babel_code}/"
-            "conversational/reference_materials/")
-DEV_DIRS["304"] = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+            "conversational/")
+RESOURCE_DIRS["304"] = Path(f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
                        f"IARPA-babel{babel_code}b-v1.0b-build/BABEL_OP2_{babel_code}/"
-                       "conversational/reference_materials/")
-DEV_DIRS["404"] = Path(f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/"
-                       f"conversational/reference_materials/")
+                       "conversational/")
+RESOURCE_DIRS["404"] = Path(f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/"
+                       f"conversational/")
 
-def load_babel_dev_toks(babel_code, dev_dirs=DEV_DIRS):
+def load_babel_dev_toks(babel_code, resource_dirs=RESOURCE_DIRS):
     """ Returns a list of tokens seen in the Babel dev10h set.
 
         This is needed so that we can construct a keyword evaluation set.
     """
 
-    babel_dev_dir = dev_dirs[babel_code]
+    babel_dev_dir = resource_dirs[babel_code] / "dev/transcription/"
     babel_dev_toks = []
     transc_paths = sorted([transc_path for transc_path in babel_dev_dir.glob("*.txt")])
     for transc_path in transc_paths:
@@ -37,7 +41,37 @@ def load_babel_dev_toks(babel_code, dev_dirs=DEV_DIRS):
                                               and tok.endswith(">"))])
     return babel_dev_toks
 
-def construct_test_set(babel_code):
+def load_lexicon(babel_code, resource_dirs=RESOURCE_DIRS):
+    """ Loads the Babel lexicon for a given language. """
+
+    lexicon_path = resouce_dirs[babel_code] / "reference_materials/lexicon.txt"
+
+    types = set()
+    with open(lexicon_path) as f:
+        for line in f:
+            types.add(line.split("\t")[0])
+
+    return types
+
+def load_unimorph_inflections(iso_code):
+    """ Given an ISO 639-3 language code, returns a mapping from lemmas of that
+        language to list of tuples of <inflection, unimorph bundle>.
+    """
+
+    logging.info(f"Loading inflections for {iso_code}")
+
+    inflections = defaultdict(set)
+    lang_path = Path("raw/unimorph/{}/{}".format(iso_code, iso_code))
+    lemma = None
+    with lang_path.open() as f:
+        for line in f:
+            sp = line.split("\t")
+            if len(sp) == 3:
+                lemma, inflection, bundle = sp
+                inflections[lemma].add((inflection, bundle))
+    return inflections
+
+def construct_test_set(babel_code, write_to_fn=False):
     """ Constructs a KW test set.
 
         The approach taken is to consider Unimorph paradigms and inflections
@@ -68,56 +102,53 @@ def construct_test_set(babel_code):
     # Load the ground-truth Babel lexicon, our oracle.
     lexicon = load_lexicon(babel_code)
 
-    covered_lexeme_count = 0
+    # We constrain our eval set to lemmas that are "covered" by the
+    # pronunciation lexicon. That is, whether every inflection in the lexeme
+    # that is seen in the Babel speech is also seen in the lexicon. If a lexeme
+    # is not "covered", then we can't include it in the evaluation set, since a
+    # morphological system may generate the inflection, but it can't be found
+    # in the speech because the oracle lexicon doesn't have it. We want the
+    # oracle to actually be an oracle.
     unimorph_lexemes = load_unimorph_inflections(babel2iso[babel_code])
     covered_lexemes = dict()
     for lemma in unimorph_lexemes:
-
-        # Flag to say whether the lexeme is covered by the pronunciation
-        # lexicon
         lexeme_covered = True
-
         seen_inflections = []
         for inflection, bundle in unimorph_lexemes[lemma]:
             if inflection in dev_types:
                 if inflection not in lexicon:
-                    # Then we can't use the lexeme, since the RTTM will be missing
-                    # the a valid inflection that a system might look for and find.
-                    # TODO perhaps confirm that the RTTM doesn't have it.
+                    # TODO Confirm that the RTTM doesn't actually have the
+                    # form. I'm assuming there's no way it can.
                     lexeme_covered = False
                 seen_inflections.append(inflection)
-
-        if lexeme_covered:
-            covered_lexeme_count += 1
             covered_lexemes[lemma] = seen_inflections
-
-    print(f"Covered lexemes: {covered_lexeme_count}")
-    print(f"Total lexemes: {len(unimorph_lexemes.keys())}")
+    logging.info(f"Covered lexemes: {len(covered_lexemes)}")
+    logging.info(f"Total lexemes: {len(unimorph_lexemes)}")
 
     total_seen_inflections = 0
     total_inflections = 0
     for lemma in covered_lexemes:
         total_seen_inflections += len(covered_lexemes[lemma])
         total_inflections += len(unimorph_lexemes[lemma])
+    logging.info("Avg. # seen inflections per lexeme: {}".format(
+            total_seen_inflections/len(list(covered_lexemes.keys()))))
+    logging.info("Avg. # unimorph inflections per lexeme: {}".format(
+            total_inflections/len(list(covered_lexemes.keys()))))
 
-    print("Avg. # seen inflections per lexeme: {}".format(total_seen_inflections/len(list(covered_lexemes.keys()))))
-    print("Avg. # unimorph inflections per lexeme: {}".format(total_inflections/len(list(covered_lexemes.keys()))))
-
-    # Now additionally constrain based on Garrett's set.
-    hyps = load_garrett_hypotheses(babel2iso[babel_code])
-    print(len(set(hyps.keys()).intersection(set(covered_lexemes.keys()))))
+    # Now additionally constrain based on Garrett's DTL set. By this I mean the
+    # lemmas that were being used to generate inflections, not the inflections
+    # themselves.
+    dtl_hyps = inflections.load_dtl_hypotheses(babel2iso[babel_code])
+    logging.info("Intersection of lemmas DTL generated over and the covered
+            lexemes: {len(set(dtl_hyps.keys()).intersection(set(covered_lexemes.keys()))))")
 
     # TODO Not sure where this comes from, but it needs to generalize.
     ecf_fn = f"To be replaced w/ the {babel_code} *.ecf.xml"
     version_str = "Inflection KWS test set 0.1."
-    #write_kwlist_xml(babel_code, covered_lexemes, ecf_fn, version_str)
-
-
 
     # Create an inverted index to assess how often an inflection occurs in
-    # multiple lexemes.
-    # TODO discard lexemes that include ambiguous inflections from our test
-    # set.
+    # multiple lexemes. This is so that we can discard lexemes that include
+    # ambiguous inflections from our test set.
     ambiguous_inflections = []
     ambiguous_forms = set()
     inflection2lemma = defaultdict(set)
@@ -127,12 +158,12 @@ def construct_test_set(babel_code):
             if len(inflection2lemma[inflection]) > 1:
                 ambiguous_inflections.append(inflection)
                 ambiguous_forms.add(inflection)
-                print(f"ambiguous inflection->lemmas: {inflection}->{inflection2lemma[inflection]}")
-    print(f"len(ambiguous_inflections) = {len(ambiguous_inflections)}")
-    #print(f"len(ambiguous_forms) = {len(ambiguous_forms)}")
-    print(f"total_seen_inflections: {total_seen_inflections}")
-    print(f"%age: {100*len(ambiguous_inflections)/total_seen_inflections}")
+                logging.info(f"ambiguous inflection->lemmas: {inflection}->{inflection2lemma[inflection]}")
+    logging.info(f"len(ambiguous_inflections) = {len(ambiguous_inflections)}")
+    logging.info(f"total_seen_inflections: {total_seen_inflections}")
+    logging.info(f"%age: {100*len(ambiguous_inflections)/total_seen_inflections}")
 
+    # Now actually filter out the lexemes with ambiguous inflections.
     filtered_lexemes = dict()
     for lemma in covered_lexemes:
         contains_ambiguous_inflection = False
@@ -142,8 +173,11 @@ def construct_test_set(babel_code):
                 break
         if not contains_ambiguous_inflection:
             filtered_lexemes[lemma] = set(covered_lexemes[lemma])
+    logging.info(f"Had {len(covered_lexemes)} lexemes; now has {len(filtered_lexemes)}")
 
-    print(f"Had {len(covered_lexemes)} lexemes; now has {len(filtered_lexemes)}")
-    with open(f"{babel_code}.kwlist.xml", "w") as f:
-        print(kwlist_xml(babel_code, filtered_lexemes, ecf_fn, version_str),
-              file=f)
+    # Write to a KW list file.
+    if write_to_fn:
+        with open(f"{babel_code}.kwlist.xml", "w") as f:
+            print(kwlist_xml(babel_code, filtered_lexemes, ecf_fn, version_str),
+                  file=f)
+    return filtered_lexemes
