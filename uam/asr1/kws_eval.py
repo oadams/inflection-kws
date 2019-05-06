@@ -175,12 +175,13 @@ def keyword_inflections(babel_code, write_to_fn=False):
     lexicon = load_lexicon(babel_code)
 
     # We constrain our eval set to lemmas that are "covered" by the
-    # pronunciation lexicon. That is, whether every inflection in the lexeme
-    # that is seen in the Babel speech is also seen in the lexicon. If a lexeme
-    # is not "covered", then we can't include it in the evaluation set, since a
-    # morphological system may generate the inflection, but it can't be found
-    # in the speech because the oracle lexicon doesn't have it. We want the
-    # oracle to actually be an oracle.
+    # pronunciation lexicon. A 'covered' lexeme is one where every inflection
+    # in the lexeme that is seen in the Babel speech is also seen in the
+    # lexicon. If a lexeme is not "covered", then we can't include it in the
+    # evaluation set, since a morphological system may generate the inflection,
+    # but it can't be found in the speech because the oracle lexicon doesn't
+    # have it. We want the oracle to actually be an oracle.
+    # We also keep in covered_lexemes only those that were seen in the speech.
     unimorph_lexemes = load_unimorph_inflections(babel2iso[babel_code])
     covered_lexemes = dict()
     for lemma in unimorph_lexemes:
@@ -191,8 +192,11 @@ def keyword_inflections(babel_code, write_to_fn=False):
                 if inflection not in lexicon:
                     # TODO Confirm that the RTTM doesn't actually have the
                     # form. I'm assuming there's no way it can.
+                    logging.info(f"inflection {inflection} of {lemma} not in lexicon")
                     lexeme_covered = False
+                    break
                 seen_inflections.append(inflection)
+        if lexeme_covered:
             covered_lexemes[lemma] = seen_inflections
     logging.info(f"Covered lexemes: {len(covered_lexemes)}")
     logging.info(f"Total lexemes: {len(unimorph_lexemes)}")
@@ -212,7 +216,7 @@ def keyword_inflections(babel_code, write_to_fn=False):
     # themselves.
     dtl_hyps = inflections.load_dtl_hypotheses(babel2iso[babel_code])
     logging.info("Intersection of lemmas DTL generated over and the covered"
-                f"lexemes: {len(set(dtl_hyps.keys()).intersection(set(covered_lexemes.keys())))}")
+                f" lexemes: {len(set(dtl_hyps.keys()).intersection(set(covered_lexemes.keys())))}")
 
     # TODO Not sure where this comes from, but it needs to generalize.
     ecf_fn = f"To be replaced w/ the {babel_code} *.ecf.xml"
