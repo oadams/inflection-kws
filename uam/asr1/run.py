@@ -467,7 +467,7 @@ def prepare_kws(lang, custom_kwlist=True, filt_dtl=False):
         # TODO Don't hardcode the paths. Or at least hardcode good paths.
         # I should instead be calling kws_eval.test_set() or whatever the
         # function is called.
-        kwlist_file = f"../../{lang}.kwlist.xml"
+        kwlist_file = f"kwlists/{lang}.kwlist.xml"
         out_dir = f"{data_dir}/kwset_custom"
         if filt_dtl:
             out_dir = f"{data_dir}/kwset_custom_filt_dtl"

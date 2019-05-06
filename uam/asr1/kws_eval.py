@@ -50,6 +50,11 @@ for babel_code in ["404"]:
     RESOURCE_DIRS[babel_code] = Path(
             f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/"
             f"conversational/")
+for babel_code in ["206"]:
+    RESOURCE_DIRS[babel_code] = Path(
+            f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+            f"/release-current/conversational/")
+
 
 def load_babel_dev_toks(babel_code, resource_dirs=RESOURCE_DIRS):
     """ Returns a list of tokens seen in the Babel dev10h set.
@@ -245,8 +250,11 @@ def keyword_inflections(babel_code, write_to_fn=False):
     eval_lexemes = filtered_lexemes
 
     # Write to a KW list file.
+    kwlist_dir = Path("kwlists/")
+    if not kwlist_dir.is_dir():
+        kwlist_dir.mkdir()
     if write_to_fn:
-        with open(f"{babel_code}.kwlist.xml", "w") as f:
+        with open(kwlist_dir / f"{babel_code}.kwlist.xml", "w") as f:
             print(kwlist_xml(babel_code, eval_lexemes, ecf_fn, version_str),
                   file=f)
     return eval_lexemes
