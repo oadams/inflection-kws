@@ -201,16 +201,22 @@ def prepare_langs(train_langs, recog_langs, filt_dtl=False):
                     str(lang_uni_filt)]
             run(args, check=True)
 
-            # Need to create a language model too. NOTE I assume we can just
-            # copy the unfiltered one. It shouldn't matter if the words DTL
-            # fails to hypothesize are in the language model, if they're not in
-            # the pronunciation lexicon because of the restriction above then
-            # we have correctly made it so that KWS won't be able to find them .
-            lang_uni = Path(
-                    f"data/{babel_code}_test/data/lang_universal")
-            args = ["rsync", "-av",
-                    str(lang_uni / "G.fst"),
-                    str(lang_uni_filt / "G.fst")]
+            logging.info("Training LM...")
+            data_dir = lang_uni_filt.parent
+            # Note that we need to retrain the language using the filtered
+            # words.txt file.
+            args = ["./local/train_lms_srilm.sh",
+                    "--oov-symbol", "<unk>",
+                    "--train-text", str(data_dir / "train" / "text"),
+                    "--words-file", str(lang_uni_filt / "words.txt"),
+                    data_dir, str(data_dir / "srilm_filt_dtl")]
+            run(args, check=True)
+
+            logging.info("Converting ARPA LM to G.fst...")
+            # Convert the ARPA LM file to an FST.
+            args = ["./local/arpa2G.sh",
+                    str(data_dir / "srilm_filt_dtl" / "lm.gz"),
+                    lang_uni_filt, lang_uni_filt]
             run(args, check=True)
 
 def prepare_align():
@@ -530,6 +536,7 @@ def kws(lang, env, re_index=True, custom_kwlist=True, filt_dtl=False):
         kw_dir = Path(f"{decode_dir}/kwset_custom")
         if filt_dtl:
             kw_dir = Path(f"{decode_dir}/kwset_custom_filt_dtl")
+            extraid = "custom_filt_dtl"
 
     # NOTE Need to rm .done.index if I need to re-run indexing. Actually TODO, in
     # general for all these functions I should take a kwarg flag that can be
