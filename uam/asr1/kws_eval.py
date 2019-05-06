@@ -1,4 +1,23 @@
-""" Creates an evaluation set. """
+""" Given Unimorph and Babel data for a language, create a keyword list for
+    searching for inflected forms of a word.
+
+    The task is framed as follows: given a word, find occurrences of that
+    word in the speech. However, unlike traditional KWS, the model is
+    rewarded for finding any inflection of the word, and penalized if those
+    are missed.
+
+    There are a number of steps. First is to examine what words occur both
+    in the unimorph data as well as in our Babel data. The Unimorph
+    paradigms will give us ground truth as to what words are actually
+    inflections of those. We then just find which utterances they occur in
+    the Babel dev set, making sure we account for homonyms.
+
+    There's also the cognate task variation on this. This has a similar
+    formulation, but is different with regards to construction of the
+    evaluation set. For that task, we want to search for some source
+    language concepts in target language speech. This is essentially
+    cross-lingual keyword search.
+"""
 
 from collections import defaultdict
 import logging
