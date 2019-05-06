@@ -4,6 +4,19 @@ useful if the evaluation speech doesn't already have an RTTM file. However, for
 the purposes of EMNLP 2019, we ended up making a custom keyword set that uses
 the the existing Babel dev10h speech sets, which already have ground-truth RTTM
 files. So this isn't necessary unless you want to use different speech.
+
+From what I wrote previously:
+    Next we need to get a finer-grained location of those words in the
+    utterance. To do this we need to run forced alignment between the
+    utterance and the speech, probably using the HMM-GMM system that was
+    used to perform alignment before training the chain model in the
+    first place. Actually, we will want to retrain the HMM-GMM system,
+    incorporating the dev10 data into the training data so that we can get
+    'ground-truth' alignments. But as a first approximation, reusing the
+    existing tri5 model will probably do. Alignments should be accurate,
+    since we do in fact get to see the transcription. With those alignments
+    in place, we can create the requisite RTTM, ECF and KW list XML files.
+    Then we simply call prepare_kws() and kws() as previously.
 """
 
 from pathlib import Path

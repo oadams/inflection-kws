@@ -1,3 +1,5 @@
+""" Provides mapping from Babel language codes to ISO 639-3 codes and names."""
+
 babel2iso = {
              "103":"ben",
              "104":"pus",

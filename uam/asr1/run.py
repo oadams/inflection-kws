@@ -525,18 +525,6 @@ def create_unimorph_babel_kwlist(lang):
         inflections of those. We then just find which utterances they occur in
         the Babel dev set, making sure we account for homonyms.
 
-        Next we need to get a finer-grained location of those words in the
-        utterance. To do this we need to run forced alignment between the
-        utterance and the speech, probably using the HMM-GMM system that was
-        used to perform alignment before training the chain model in the
-        first place. Actually, we will want to retrain the HMM-GMM system,
-        incorporating the dev10 data into the training data so that we can get
-        'ground-truth' alignments. But as a first approximation, reusing the
-        existing tri5 model will probably do. Alignments should be accurate,
-        since we do in fact get to see the transcription. With those alignments
-        in place, we can create the requisite RTTM, ECF and KW list XML files.
-        Then we simply call prepare_kws() and kws() as previously.
-
         There's also the cognate task variation on this. This has a similar
         formulation, but is different with regards to construction of the
         evaluation set. For that task, we want to search for some source
