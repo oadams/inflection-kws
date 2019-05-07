@@ -198,19 +198,27 @@ def prepare_langs_filt_dtl(recog_langs, add_spurious=True, suffix="_filt_dtl"):
         if add_spurious:
             # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
             # by adding spurious entries from the inflection tool as appropriate.
-            for fn in ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]:
-                logging.info(f"Adding spurious entries to {fn}...")
-                with open(dict_uni_filt / fn, "a") as dict_filt_f:
-                    #for word in dtl, if it's not already in forms, addd it.
-                    for ortho in dtl_inflections:
-                        if ortho not in lex_forms:
+            dict_fns = ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]
+            dict_fs = [open(dict_uni_filt / fn, "a") for fn in dict_fns]
+            logging.info(f"Adding spurious entries to lexicons...")
+            # Now add spurious forms that were generated, if they're
+            # not already in the lexicon.
+            added = set()
+            for lemma in eval_inflections:
+                for bundle in dtl_paradigms[lemma]:
+                    for ortho in dtl_paradigms[lemma][bundle]:
+                        if ortho not in lex_forms and ortho not in added:
+                            added.add(ortho)
                             # TODO Generalize beyond rule based G2P.
                             pronunciation = g2p.rule_based_g2p(
                                     babel_iso.babel2iso[babel_code], ortho)
-                            if fn == "lexiconp.txt":
-                                print(f"{ortho}\t1.0\t{pronunciation}", file=dict_filt_f)
-                            else:
-                                print(f"{ortho}\t{pronunciation}", file=dict_filt_f)
+                            # "lexiconp.txt"
+                            print(f"{ortho}\t1.0\t{pronunciation}", file=dict_fs[0])
+                            print(f"{ortho}\t{pronunciation}", file=dict_fs[1])
+                            print(f"{ortho}\t{pronunciation}", file=dict_fs[2])
+
+            for f in dict_fs:
+                f.close()
 
         lang_uni_filt = Path(
                 f"data/{babel_code}_test/data/lang_universal{suffix}")
@@ -231,13 +239,13 @@ def prepare_langs_filt_dtl(recog_langs, add_spurious=True, suffix="_filt_dtl"):
                 "--oov-symbol", "<unk>",
                 "--train-text", str(data_dir / "train" / "text"),
                 "--words-file", str(lang_uni_filt / "words.txt"),
-                data_dir, str(data_dir / "srilm{suffix}")]
+                data_dir, str(data_dir / f"srilm{suffix}")]
         run(args, check=True)
 
         logging.info("Converting ARPA LM to G.fst...")
         # Convert the ARPA LM file to an FST.
         args = ["./local/arpa2G.sh",
-                str(data_dir / "srilm{suffix}" / "lm.gz"),
+                str(data_dir / f"srilm{suffix}" / "lm.gz"),
                 lang_uni_filt, lang_uni_filt]
         run(args, check=True)
 

@@ -11,7 +11,8 @@ def load_dtl_hypotheses(iso_code, dtl_hyps_dir=DTL_HYPS_DIR):
     """
 
     # NOTE Commented out the below block because I'm worried about Congo
-    # Swahili not being similar enough to Coastal Swahili.
+    # Swahili not being similar enough to Coastal Swahili, so it should just
+    # fail loudly.
     # if iso_code == "swc":
     #     # Then use *swh* *verbs* instead.
     #     hyps_path = Path(f"/export/a14/yarowsky-lab/gnicolai/G2PHypotheses/swh.verbs.out")
@@ -22,7 +23,7 @@ def load_dtl_hypotheses(iso_code, dtl_hyps_dir=DTL_HYPS_DIR):
     with open(hyps_path) as f:
         for line in f:
             fields = line.split("\t")
-            bundle, lemma = fields[0].split("+")
+            lemma, bundle = fields[0].split("+")
             inflection_hyp = fields[1]
 
             if lemma in hyps:

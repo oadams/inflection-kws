@@ -183,6 +183,13 @@ def keyword_inflections(babel_code, write_to_fn=False):
     # have it. We want the oracle to actually be an oracle.
     # We also keep in covered_lexemes only those that were seen in the speech.
     unimorph_lexemes = load_unimorph_inflections(babel2iso[babel_code])
+
+    # Now load DTL hyps so we can additionally constrain based on Garrett's DTL
+    # set. By this I mean the lemmas that were being used to generate
+    # inflections, not the inflections themselves.
+    dtl_hyps = inflections.load_dtl_hypotheses(babel2iso[babel_code])
+    logging.info(f"DTL lemmas: {len(set(dtl_hyps.keys()))}")
+
     covered_lexemes = dict()
     for lemma in unimorph_lexemes:
         lexeme_covered = True
@@ -196,7 +203,7 @@ def keyword_inflections(babel_code, write_to_fn=False):
                     lexeme_covered = False
                     break
                 seen_inflections.append(inflection)
-        if lexeme_covered:
+        if lexeme_covered and lemma in dtl_hyps:
             covered_lexemes[lemma] = seen_inflections
     logging.info(f"Covered lexemes: {len(covered_lexemes)}")
     logging.info(f"Total lexemes: {len(unimorph_lexemes)}")
@@ -211,12 +218,6 @@ def keyword_inflections(babel_code, write_to_fn=False):
     logging.info("Avg. # unimorph inflections per lexeme: {}".format(
             total_inflections/len(list(covered_lexemes.keys()))))
 
-    # Now additionally constrain based on Garrett's DTL set. By this I mean the
-    # lemmas that were being used to generate inflections, not the inflections
-    # themselves.
-    dtl_hyps = inflections.load_dtl_hypotheses(babel2iso[babel_code])
-    logging.info("Intersection of lemmas DTL generated over and the covered"
-                f" lexemes: {len(set(dtl_hyps.keys()).intersection(set(covered_lexemes.keys())))}")
 
     # TODO Not sure where this comes from, but it needs to generalize.
     ecf_fn = f"To be replaced w/ the {babel_code} *.ecf.xml"
