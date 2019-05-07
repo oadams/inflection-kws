@@ -106,7 +106,7 @@ def get_args():
     # Prepare an experiment affix based on relevant flags.
     exp_affix = ""
     if args.rm_missing:
-        exp_affix = f"{exp_affix}_filt_dtl"
+        exp_affix = f"{exp_affix}_rm_missing"
     if args.add_spurious:
         exp_affix = f"{exp_affix}_add_spurious"
     args.exp_affix = exp_affix
@@ -137,8 +137,7 @@ def prepare_langs(train_langs, recog_langs):
 
 def prepare_recog_langs(recog_langs,
                         rm_missing=True, add_spurious=True,
-                        # TODO replace 'filt_dtl' w/ 'rm_missing'
-                        exp_affix="_filt_dtl_add_spurious"):
+                        exp_affix="_rm_missing_add_spurious"):
     """
     Prepares lang dirs for recog_langs again. This needs to be called after a
     call to prepare_langs. Includes options such as rm_missing add_spurious.
@@ -624,10 +623,10 @@ if __name__ == "__main__":
     # The core steps in the pipeline.
     #prepare_langs(train_langs, recog_langs)
     if args.rm_missing or args.add_spurious:
-        prepare_langs_filt_dtl(recog_langs,
-                               rm_missing=args.rm_missing
-                               add_spurious=args.add_spurious,
-                               exp_affix=args.exp_affix)
+        prepare_recog_langs(recog_langs,
+                            rm_missing=args.rm_missing
+                            add_spurious=args.add_spurious,
+                            exp_affix=args.exp_affix)
 
     #prepare_align()
     #train()
