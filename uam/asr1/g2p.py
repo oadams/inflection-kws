@@ -1,5 +1,7 @@
 """ Interface that allows us to deploy various G2P mechanisms. """
 
+import logging
+
 # Georgian G2P rules from Wikipedia using IPA.
 kat_rules = {
                 "ა": "ɑ" ,#a # For some reason the Babel pron. lex uses a not A.
@@ -72,8 +74,13 @@ kat_rules = {
                 "ხ": "x",
                 "ჯ": "dZ",
                 "ჰ": "h",
+                "-": "",
+                "ჲ": "i",
+                "ჳ": "v i",
+                "ჱ": "E i",
             }
 
 def rule_based_g2p(iso_code, ortho):
+    #logging.info(f"Converting {ortho} in language {iso_code} to phones...")
     if iso_code == "kat":
         return " ".join([kat_rules[c] for c in ortho])
