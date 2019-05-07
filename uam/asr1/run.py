@@ -340,7 +340,7 @@ def prepare_test_ivectors(lang, args, env):
           "--nj", str(args.feat_extract_nj),
           tmp_data_dir, ivector_extractor_dir, ivector_dir], check=True)
 
-def mkgraph(lang, filt_dtl=True):
+def mkgraph(lang, exp_affix=""):
     """ Prepare the HCLG.fst graph that is used in decoding.
 
         Kaldi uses a weighted finite-state transducer (WFST) architecture. This
@@ -363,6 +363,10 @@ def mkgraph(lang, filt_dtl=True):
         In our case of multilingual acoustic modelling followed by decoding a
         specific language, the L and G are specific to the test language, while
         the model_dir is common to all languages.
+
+        exp_affix (experiment affix) is a string that identifies different
+        experimental configurations and is used to disambiguate dict, lang, and
+        graph dirs etc.
     """
 
     # TODO log more details
@@ -371,13 +375,9 @@ def mkgraph(lang, filt_dtl=True):
     # NOTE A lot of these functions assume the lang dir is called {lang}_test.
     test_set = f"{lang}_test"
 
-    lang_dir = f"data/{test_set}/data/lang_universal"
+    lang_dir = f"data/{test_set}/data/lang_universal{exp_affix}"
     model_dir = f"exp/chain_cleaned/tdnn_sp"
-    graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang"
-    # TODO This flag should generalize beyond just the DTL case.
-    if filt_dtl:
-        lang_dir = f"data/{test_set}/data/lang_universal_filt_dtl"
-        graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang_filt_dtl"
+    graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang{exp_affix}"
     args = ["./utils/mkgraph.sh",
             # For chain models, we need to set the self-loop scale to 1.0. See
             # http://kaldi-asr.org/doc/chain.html#chain_decoding for details.
@@ -385,7 +385,7 @@ def mkgraph(lang, filt_dtl=True):
             lang_dir, model_dir, graph_dir]
     run(args, check=True)
 
-def decode(lang, args, env, filt_dtl=True):
+def decode(lang, args, env, exp_affix=""):
     """ Decode the test set.
 
         This actually means creating word lattices, not utterance-level
@@ -393,6 +393,10 @@ def decode(lang, args, env, filt_dtl=True):
         transcriptions, or be used directly in keyword search where the KWS
         output can weight it's confidence of having found a word based on the
         probabilities in the lattice.
+
+        exp_affix (experiment affix) is a string that identifies different
+        experimental configurations and is used to disambiguate dict, lang, and
+        graph dirs etc.
     """
 
     # TODO log more details
@@ -403,10 +407,7 @@ def decode(lang, args, env, filt_dtl=True):
     # The directory where the HCLG.fst is stored, where the L and G components
     # (pronunciation lexicon and language model, respectively) appropriately
     # cover the test set.
-    graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang"
-    # TODO Generalize this flag beyond DTL.
-    if filt_dtl:
-        graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang_filt_dtl"
+    graph_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_graph_lang{exp_affix}"
 
     # The directory that contains the speech features (e.g. MFCCs)
     data_dir = f"data/{test_set}/data/dev10h.pem_hires"
@@ -414,10 +415,7 @@ def decode(lang, args, env, filt_dtl=True):
     # The directory that word lattices get written to.
     # NOTE The prefix exp/chain_cleaned/tdnn_sp/ needs a single point of
     # control if we want this script to be able to use other models.
-    # TODO Generalize this flag beyond DTL.
-    decode_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_decode"
-    if filt_dtl:
-        decode_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_decode_filt_dtl"
+    decode_dir = f"exp/chain_cleaned/tdnn_sp/{test_set}_decode{exp_affix}"
 
     cmd = env["decode_cmd"]
     # TODO I've hardcoded the cmd variable in a few places now.
@@ -442,7 +440,7 @@ def decode(lang, args, env, filt_dtl=True):
         graph_dir, data_dir, decode_dir]
     run(args, check=True)
 
-def wer_score(lang, env, filt_dtl=False):
+def wer_score(lang, env, exp_affix=""):
     """ Scores the WER of the lattices.
 
         This isn't directly used in keyword search, but it can help in
@@ -455,24 +453,25 @@ def wer_score(lang, env, filt_dtl=False):
     test_set = f"{lang}_test"
 
     data_dir = f"data/{test_set}/data/dev10h.pem"
-    lang_dir = f"data/{test_set}/data/lang_universal"
+    lang_dir = f"data/{test_set}/data/lang_universal{exp_affix}"
     # NOTE Again, here's another directory that is identical to previously. We
     # need a single point of control.
-    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode"
-    if filt_dtl:
-        lang_dir = f"data/{test_set}/data/lang_universal_filt_dtl"
-        decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode_filt_dtl"
+    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode{exp_affix}"
     cmd = "utils/queue.pl --mem 10G"
     args = ["steps/score_kaldi.sh",
             "--cmd", cmd,
             data_dir, lang_dir, decode_dir]
     run(args, check=True)
 
-def prepare_kws(lang, custom_kwlist=True, filt_dtl=False):
+def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
     """ Establish KWS lists and ground truth.
 
         This probably should only have to change when the KW list and ground
         truth change, not when L.fst or G.fst changes.
+
+        exp_affix (experiment affix) is a string that identifies different
+        experimental configurations and is used to disambiguate dict, lang, and
+        graph dirs etc.
     """
 
     # NOTE For now I'm assuming we're using official Babel KWS gear: the RTTM
@@ -493,9 +492,7 @@ def prepare_kws(lang, custom_kwlist=True, filt_dtl=False):
 
     test_set = f"{lang}_test"
 
-    lang_dir = f"data/{test_set}/data/lang_universal"
-    if filt_dtl:
-        lang_dir = f"data/{test_set}/data/lang_universal_filt_dtl"
+    lang_dir = f"data/{test_set}/data/lang_universal{exp_affix}"
     data_dir = f"data/{test_set}/data/dev10h.pem"
 
     # Using our own keyword lists.
@@ -504,9 +501,7 @@ def prepare_kws(lang, custom_kwlist=True, filt_dtl=False):
         # I should instead be calling kws_eval.test_set() or whatever the
         # function is called.
         kwlist_file = f"kwlists/{lang}.kwlist.xml"
-        out_dir = f"{data_dir}/kwset_custom"
-        if filt_dtl:
-            out_dir = f"{data_dir}/kwset_custom_filt_dtl"
+        out_dir = f"{data_dir}/kwset_custom{exp_affix}"
     else:
         # NOTE Assume the KW list files are in the same directory as the
         # RTTM files. For now, just use KWlist 3.
@@ -538,7 +533,7 @@ def prepare_kws(lang, custom_kwlist=True, filt_dtl=False):
     run(f"fsts-union scp:{out_dir}/tmp.2/keywords.sorted.scp ark,t:\"|gzip -c >{out_dir}/keywords.fsts.gz\"",
         shell=True, check=True)
 
-def kws(lang, env, re_index=True, custom_kwlist=True, filt_dtl=False):
+def kws(lang, env, re_index=True, custom_kwlist=True, exp_affix=""):
     """ Run keyword search.
 
         See kaldi/egs/babel/s5d/local/search/run_search.sh for more details on
@@ -547,13 +542,9 @@ def kws(lang, env, re_index=True, custom_kwlist=True, filt_dtl=False):
 
     test_set = f"{lang}_test"
 
-    lang_dir = f"data/{test_set}/data/lang_universal"
-    if filt_dtl:
-        lang_dir = f"data/{test_set}/data/lang_universal_filt_dtl"
+    lang_dir = f"data/{test_set}/data/lang_universal{exp_affix}"
     data_dir = f"data/{test_set}/data/dev10h.pem"
-    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode"
-    if filt_dtl:
-        decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode_filt_dtl"
+    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode{exp_affix}"
     # NOTE had issues passing in the env["decode_cmd"] because queue.pl wasn't
     # in the PATH or something, so using hardcoded utils/queue.pl for now.
     cmd = "utils/queue.pl --mem 10G"
@@ -561,12 +552,9 @@ def kws(lang, env, re_index=True, custom_kwlist=True, filt_dtl=False):
     kw_dir = Path(f"{decode_dir}/kws")
     extraid=""
     if custom_kwlist:
-        # Then local/search/search.sh will create a "kws_custom" dir.
-        extraid = "custom"
-        kw_dir = Path(f"{decode_dir}/kwset_custom")
-        if filt_dtl:
-            kw_dir = Path(f"{decode_dir}/kwset_custom_filt_dtl")
-            extraid = "custom_filt_dtl"
+        # Then local/search/search.sh will create a "kwset_custom" dir.
+        kw_dir = Path(f"{decode_dir}/kwset_custom{exp_affix}")
+        extraid = f"custom{exp_affix}"
 
     # NOTE Need to rm .done.index if I need to re-run indexing. Actually TODO, in
     # general for all these functions I should take a kwarg flag that can be
@@ -615,21 +603,22 @@ if __name__ == "__main__":
 
     # The core steps in the pipeline.
     #prepare_langs(train_langs, recog_langs, filt_dtl=args.filt_dtl)
-    suffix = ""
+    # TODO This should probably go in the process arguments function.
+    exp_affix = ""
     if args.filt_dtl:
-        suffix = f"{suffix}_filt_dtl"
+        exp_affix = f"{exp_affix}_filt_dtl"
     if args.add_spurious:
-        suffix = f"{suffix}_add_spurious"
-    if args.filt_dtl or args.add_spurious:
-        prepare_langs_filt_dtl(recog_langs,
-                               add_spurious=args.add_spurious,
-                               suffix=suffix)
+        exp_affix = f"{exp_affix}_add_spurious"
+    #if args.filt_dtl or args.add_spurious:
+    #    prepare_langs_filt_dtl(recog_langs,
+    #                           add_spurious=args.add_spurious,
+    #                           suffix=suffix)
 
     #prepare_align()
     #train()
 
     # TODO Perhaps break this second decoding part off into a separate stage
-    # which gets determined by a command line argument. For example, ru.py
+    # which gets determined by a command line argument. For example, run.py
     # --stage train would run prepare_langs(), prepare_align() and train(),
     # while --stage decode would do mkgraph(), prepare_test_feats(),
     # prepare_test_ivectors(), and decode(). A third --stage kws would create
@@ -637,21 +626,21 @@ if __name__ == "__main__":
 
     ##### Preparing decoding #####
     # Make HCLG.fst.
-    #mkgraph(args.test_lang, filt_dtl=args.filt_dtl)
+    mkgraph(args.test_lang, exp_affix=exp_affix)
     # Prepare MFCCs and CMVN stats.
     #prepare_test_feats(args.test_lang, args, env)
     # Prepare ivectors
     #prepare_test_ivectors(args.test_lang, args, env)
 
-    #decode(args.test_lang, args, env, filt_dtl=args.filt_dtl)
+    decode(args.test_lang, args, env, exp_affix=exp_affix)
 
     ##### KWS #####
-    #prepare_kws(args.test_lang,
-    #            filt_dtl=args.filt_dtl,
-    #            custom_kwlist=args.custom_kwlist)
-    #kws(args.test_lang, env,
-    #    custom_kwlist=args.custom_kwlist,
-    #    filt_dtl=args.filt_dtl)
+    prepare_kws(args.test_lang,
+                exp_affix=exp_affix,
+                custom_kwlist=args.custom_kwlist)
+    kws(args.test_lang, env,
+        exp_affix=exp_affix,
+        filt_dtl=args.filt_dtl)
     #wer_score(args.test_lang, env)
 
     # NOTE If you want to create another evaluation set that's not based off of
