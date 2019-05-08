@@ -140,10 +140,12 @@ def kwlist_xml(babel_code: str,
                        "</kw>")
             xml_tags.append(xml_tag)
 
+    logging.info(f"Number of inflections in KW list: {len(xml_tags) - 1}")
+
     xml_tags.append("</kwlist>")
     return "\n".join(xml_tags)
 
-def keyword_inflections(babel_code, write_to_fn=False):
+def create_eval_paradigms(babel_code, write_to_fn=False):
     """ Constructs a KW test set.
 
         The approach taken is to consider Unimorph paradigms and inflections
@@ -204,9 +206,15 @@ def keyword_inflections(babel_code, write_to_fn=False):
                     break
                 seen_inflections.append(inflection)
         if lexeme_covered and lemma in dtl_hyps:
+            # TODO Maybe uncomment the two lines below. We don't really want to
+            # report stats on lexemes with no inflections. Note that it
+            # shouldn't affect KWS scores, since we just use whatever
+            # inflections are available anyway.
+            #if seen_inflections == []:
+            #   continue
             covered_lexemes[lemma] = seen_inflections
-    logging.info(f"Covered lexemes: {len(covered_lexemes)}")
-    logging.info(f"Total lexemes: {len(unimorph_lexemes)}")
+    logging.info(f"# unimorph lexemes: {len(unimorph_lexemes.keys())}")
+    logging.info(f"# covered lexemes: {len(covered_lexemes.keys())}")
 
     total_seen_inflections = 0
     total_inflections = 0

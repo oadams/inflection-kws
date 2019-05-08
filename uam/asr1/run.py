@@ -85,9 +85,14 @@ def get_args():
                         " inflections from the wordform generator, whether"
                         " correct or not. This necessarily assumes"
                         " --custom-kwlist is set to True."))
-    parser.add_argument("--test_lang", type=str, default="404",
-                        help=("The language to test on. Default is Georgian"
-                              " (404)."))
+    parser.add_argument("--test_lang", type=str, required=True,
+                        help=("The language to test on. Eg. '404' (Georgian)."))
+    parser.add_argument("--compute_wer", action="store_true",
+                        default=False,
+                        help=("Compute the WER of decoding against"
+                        " transcription. This is not needed for keyword search"
+                        " but is useful for debugging, to see if the word"
+                        " lattices are good."))
     # TODO --custom-kwlist will always be True, since the default is True
     # (sensible), but calling with the flag also sets to True. Need to instead
     # add an option to explicitly select the default Babel kwlist (which isn't
@@ -106,9 +111,9 @@ def get_args():
     # Prepare an experiment affix based on relevant flags.
     exp_affix = ""
     if args.rm_missing:
-        exp_affix = f"{exp_affix}_filt_dtl"
+        exp_affix = f"{exp_affix}_rm-missing"
     if args.add_spurious:
-        exp_affix = f"{exp_affix}_add_spurious"
+        exp_affix = f"{exp_affix}_add-spurious"
     args.exp_affix = exp_affix
 
     return args
@@ -136,6 +141,7 @@ def prepare_langs(train_langs, recog_langs):
     run(args, check=True)
 
 def prepare_test_lang(babel_code,
+                      hyp_paradigms, eval_paradigms,
                       rm_missing=True, add_spurious=True,
                       exp_affix="_rm_missing_add_spurious"):
     """
@@ -156,10 +162,6 @@ def prepare_test_lang(babel_code,
     # TODO Generalize this beyond nouns
     iso_code = babel_iso.babel2iso[babel_code]
 
-    # Read in a list of inflections.
-    # TODO generalize this beyond DTL
-    hyp_paradigms = inflections.load_dtl_hypotheses(iso_code)
-
     dict_uni = Path(f"data/{babel_code}_test/data/dict_universal")
     # TODO Generalize this filename so that other inflection hypotheses
     # can be used
@@ -168,7 +170,6 @@ def prepare_test_lang(babel_code,
     # for inflections that were hypothesized, or were not in the
     # evaluation set lexemes.
 
-    # TODO Need to generalize away from DTL specifically.
     hyp_inflections = []
     for lemma in hyp_paradigms:
         for bundle in hyp_paradigms[lemma]:
@@ -187,27 +188,28 @@ def prepare_test_lang(babel_code,
     # dependency on the eval set here for oracle stuff. TODO This
     # definitely means this block should be broken into another
     # function.
-    eval_inflections = kws_eval.keyword_inflections(babel_code)
     eval_inflection_list = []
-    for lemma in eval_inflections:
-        eval_inflection_list.extend(eval_inflections[lemma])
+    for lemma in eval_paradigms:
+        eval_inflection_list.extend(eval_paradigms[lemma])
     eval_inflection_set = set(eval_inflection_list)
 
+    # Lex forms will contain all the word forms in the Babel "oracle" lexicon.
     lex_forms = set()
     # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
     # by filtering out words appropriately.
-    for fn in ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]:
-        logging.info(f"Filtering {fn}...")
-        with open(dict_uni / fn) as dict_f, open(dict_uni_filt / fn, "w") as dict_filt_f:
-            for line in dict_f:
-                ortho, *_ = line.split("\t")
-                lex_forms.add(ortho)
-                if ortho.startswith("<") and ortho.endswith(">"):
-                    print(line, file=dict_filt_f, end="")
-                elif ortho in hyp_inflections:
-                    print(line, file=dict_filt_f, end="")
-                elif ortho not in eval_inflection_set:
-                    print(line, file=dict_filt_f, end="")
+    if rm_missing:
+        for fn in ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]:
+            logging.info(f"Filtering {fn}...")
+            with open(dict_uni / fn) as dict_f, open(dict_uni_filt / fn, "w") as dict_filt_f:
+                for line in dict_f:
+                    ortho, *_ = line.split("\t")
+                    lex_forms.add(ortho)
+                    if ortho.startswith("<") and ortho.endswith(">"):
+                        print(line, file=dict_filt_f, end="")
+                    elif ortho in hyp_inflections:
+                        print(line, file=dict_filt_f, end="")
+                    elif ortho not in eval_inflection_set:
+                        print(line, file=dict_filt_f, end="")
 
     if add_spurious:
         # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
@@ -218,7 +220,7 @@ def prepare_test_lang(babel_code,
         # Now add spurious forms that were generated, if they're
         # not already in the lexicon.
         added = set()
-        for lemma in eval_inflections:
+        for lemma in eval_paradigms:
             for bundle in hyp_paradigms[lemma]:
                 for ortho in hyp_paradigms[lemma][bundle]:
                     if ortho not in lex_forms and ortho not in added:
@@ -477,6 +479,7 @@ def wer_score(lang, env, exp_affix=""):
             data_dir, lang_dir, decode_dir]
     run(args, check=True)
 
+# TODO clarify how this differentiates from kws_eval.create_eval_paradigms.
 def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
     """ Establish KWS lists and ground truth.
 
@@ -545,7 +548,8 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
     # Aggregate the keywords from different lists into one FST.
     run(f"sort {out_dir}/tmp.2/keywords.scp > {out_dir}/tmp.2/keywords.sorted.scp",
         shell=True, check=True)
-    run(f"fsts-union scp:{out_dir}/tmp.2/keywords.sorted.scp ark,t:\"|gzip -c >{out_dir}/keywords.fsts.gz\"",
+    run(f"fsts-union scp:{out_dir}/tmp.2/keywords.sorted.scp"
+        f" ark,t:\"|gzip -c >{out_dir}/keywords.fsts.gz\"",
         shell=True, check=True)
 
 def kws(lang, env, re_index=True, custom_kwlist=True, exp_affix=""):
@@ -612,19 +616,24 @@ if __name__ == "__main__":
     # but don't use acoustic data.
     recog_langs = train_langs + ["107", "201", "307", "404"]
     #prepare_langs(train_langs, recog_langs)
-
-    # Establish the KW list.
-    #kws_eval.keyword_inflections(args.test_lang, write_to_fn=True)
-
-    # The core steps in the pipeline.
-    #if args.rm_missing or args.add_spurious:
-    #    prepare_test_lang(args.test_lang,
-    #                        rm_missing=args.rm_missing,
-    #                        add_spurious=args.add_spurious,
-    #                        exp_affix=args.exp_affix)
-
     #prepare_align()
     #train()
+
+    # Establish the KW eval list.
+    eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang, write_to_fn=True)
+
+    if args.rm_missing or args.add_spurious:
+        # Read in the inflections that were hypothesized. We use these to
+        # adjust the lexicon that is used for decoding accordingly.
+        # TODO generalize this beyond DTL
+        hyp_paradigms = inflections.load_dtl_hypotheses(iso_code)
+
+        # Now prepare the lang directory, with the lexicon and LM.
+        prepare_test_lang(args.test_lang, hyp_paradigms, eval_paradigms,
+                          rm_missing=args.rm_missing,
+                          add_spurious=args.add_spurious,
+                          exp_affix=args.exp_affix)
+
 
     # TODO Perhaps break this second decoding part off into a separate stage
     # which gets determined by a command line argument. For example, run.py
@@ -644,12 +653,17 @@ if __name__ == "__main__":
     #decode(args.test_lang, args, env, exp_affix=args.exp_affix)
 
     ##### KWS #####
-    #prepare_kws(args.test_lang,
-    #            exp_affix=args.exp_affix,
-    #            custom_kwlist=args.custom_kwlist)
+    prepare_kws(args.test_lang,
+                exp_affix=args.exp_affix,
+                custom_kwlist=args.custom_kwlist)
     kws(args.test_lang, env,
         exp_affix=args.exp_affix)
-    #wer_score(args.test_lang, env)
+
+    # Computing the word error rate (WER) can be useful for debugging to see if
+    # the word lattices generated in decoding are what is causing problems.
+    # (The lattice recall metric in KWS scoring is also useful for this).
+    if args.compute_wer:
+        wer_score(args.test_lang, env)
 
     # NOTE If you want to create another evaluation set that's not based off of
     # the Babel dev10h set, then you need to force align your speech and
