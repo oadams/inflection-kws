@@ -2,12 +2,17 @@
 
 from pathlib import Path
 
-# TODO Generalize this beyond nouns.
-DTL_HYPS_DIR = Path(f"/export/a14/yarowsky-lab/gnicolai/G2PHypotheses/")
+DTL_HYPS_DIR = Path(f"/../../G2PHypotheses/")
 
-def load_dtl_hypotheses(iso_code, dtl_hyps_dir=DTL_HYPS_DIR):
-    """ Loads hypothesized inflections produced using Garrett Nicolai's DTL
-    variation.
+def load_hypotheses(iso_code, method="DTL",
+                               pos_sets=["nouns"]):
+    """ Loads hypothesized inflections
+
+        method is a string that indicates what method was used to generate the
+        hypotheses. The default is DTL, which uses Garrett Nicolai's DTL
+        variation.
+
+        pos_sets specifies what pos sets to explore. The default is nouns.
     """
 
     # NOTE Commented out the below block because I'm worried about Congo
@@ -17,21 +22,25 @@ def load_dtl_hypotheses(iso_code, dtl_hyps_dir=DTL_HYPS_DIR):
     #     # Then use *swh* *verbs* instead.
     #     hyps_path = Path(f"/export/a14/yarowsky-lab/gnicolai/G2PHypotheses/swh.verbs.out")
 
-    hyps_path = DTL_HYPS_DIR / f"{iso_code}.nouns.out"
+    if method == "DTL":
+        hyps_dir = DTL_HYPS_DIR
 
     hyps = {}
-    with open(hyps_path) as f:
-        for line in f:
-            fields = line.split("\t")
-            lemma, bundle = fields[0].split("+")
-            inflection_hyp = fields[1]
 
-            if lemma in hyps:
-                if bundle in hyps[lemma]:
-                    hyps[lemma][bundle].append(inflection_hyp)
+    for pos_set in pos_sets:
+        hyps_path = hyps_dir / f"{iso_code}.{pos_set}.out"
+        with open(hyps_path) as f:
+            for line in f:
+                fields = line.split("\t")
+                lemma, bundle = fields[0].split("+")
+                inflection_hyp = fields[1]
+
+                if lemma in hyps:
+                    if bundle in hyps[lemma]:
+                        hyps[lemma][bundle].append(inflection_hyp)
+                    else:
+                        hyps[lemma][bundle] = [inflection_hyp]
                 else:
-                    hyps[lemma][bundle] = [inflection_hyp]
-            else:
-                hyps[lemma] = {bundle: [inflection_hyp]}
+                    hyps[lemma] = {bundle: [inflection_hyp]}
 
     return hyps

@@ -93,6 +93,9 @@ def get_args():
                         " transcription. This is not needed for keyword search"
                         " but is useful for debugging, to see if the word"
                         " lattices are good."))
+    parser.add_argument("--inflection_method", type=str, default="DTL",
+                        help=("A string indicating the method used for"
+                              " inflection hypothesis generation."))
     # TODO --custom-kwlist will always be True, since the default is True
     # (sensible), but calling with the flag also sets to True. Need to instead
     # add an option to explicitly select the default Babel kwlist (which isn't
@@ -626,7 +629,8 @@ if __name__ == "__main__":
         # Read in the inflections that were hypothesized. We use these to
         # adjust the lexicon that is used for decoding accordingly.
         # TODO generalize this beyond DTL
-        hyp_paradigms = inflections.load_dtl_hypotheses(iso_code)
+        hyp_paradigms = inflections.load_hypotheses(iso_code,
+                                                    method=args.inflection_method)
 
         # Now prepare the lang directory, with the lexicon and LM.
         prepare_test_lang(args.test_lang, hyp_paradigms, eval_paradigms,
