@@ -106,7 +106,7 @@ def get_args():
     # Prepare an experiment affix based on relevant flags.
     exp_affix = ""
     if args.rm_missing:
-        exp_affix = f"{exp_affix}_rm_missing"
+        exp_affix = f"{exp_affix}_filt_dtl"
     if args.add_spurious:
         exp_affix = f"{exp_affix}_add_spurious"
     args.exp_affix = exp_affix
@@ -135,9 +135,9 @@ def prepare_langs(train_langs, recog_langs):
             "--recog", " ".join(recog_langs)]
     run(args, check=True)
 
-def prepare_recog_langs(recog_langs,
-                        rm_missing=True, add_spurious=True,
-                        exp_affix="_rm_missing_add_spurious"):
+def prepare_test_lang(babel_code,
+                      rm_missing=True, add_spurious=True,
+                      exp_affix="_rm_missing_add_spurious"):
     """
     Prepares lang dirs for recog_langs again. This needs to be called after a
     call to prepare_langs. Includes options such as rm_missing add_spurious.
@@ -153,119 +153,115 @@ def prepare_recog_langs(recog_langs,
     lexicon.
     """
 
-    # Then we need to run utils/prepare_lang.sh again, after removing words
-    # from lexicon.txt
-    for babel_code in recog_langs:
-        # TODO Generalize this beyond nouns
+    # TODO Generalize this beyond nouns
+    iso_code = babel_iso.babel2iso[babel_code]
 
-        iso_code = babel_iso.babel2iso[babel_code]
+    # Read in a list of inflections.
+    # TODO generalize this beyond DTL
+    hyp_paradigms = inflections.load_dtl_hypotheses(iso_code)
 
-        # Read in a list of inflections.
-        # TODO generalize this beyond DTL
-        hyp_paradigms = inflections.load_dtl_hypotheses(iso_code)
+    dict_uni = Path(f"data/{babel_code}_test/data/dict_universal")
+    # TODO Generalize this filename so that other inflection hypotheses
+    # can be used
+    dict_uni_filt = Path(f"data/{babel_code}_test/data/dict_universal{exp_affix}")
+    # Now we Create a new dict_universal/ directory that filters only
+    # for inflections that were hypothesized, or were not in the
+    # evaluation set lexemes.
 
-        dict_uni = Path(f"data/{babel_code}_test/data/dict_universal")
-        # TODO Generalize this filename so that other inflection hypotheses
-        # can be used
-        dict_uni_filt = Path(f"data/{babel_code}_test/data/dict_universal{exp_affix}")
-        # Now we Create a new dict_universal/ directory that filters only
-        # for inflections that were hypothesized, or were not in the
-        # evaluation set lexemes.
+    # TODO Need to generalize away from DTL specifically.
+    hyp_inflections = []
+    for lemma in hyp_paradigms:
+        for bundle in hyp_paradigms[lemma]:
+            hyp_inflections.extend(hyp_paradigms[lemma][bundle])
+    hyp_inflections = set(hyp_inflections)
 
-        # TODO Need to generalize away from DTL specifically.
-        hyp_inflections = []
-        for lemma in hyp_paradigms:
-            for bundle in hyp_paradigms[lemma]:
-                hyp_inflections.extend(hyp_paradigms[lemma][bundle])
-        hyp_inflections = set(hyp_inflections)
+    # First copy the data
+    args = ["rsync", "-av",
+            str(dict_uni)+"/", str(dict_uni_filt)]
+    run(args, check=True)
+    args = ["rm", "-r", str(dict_uni_filt / "tmp.lang")]
+    run(args, check=True)
 
-        # First copy the data
-        args = ["rsync", "-av",
-                str(dict_uni)+"/", str(dict_uni_filt)]
-        run(args, check=True)
-        args = ["rm", "-r", str(dict_uni_filt / "tmp.lang")]
-        run(args, check=True)
+    # We actually need to output words that were in
+    # the lexicon but not the eval set. This means we have a
+    # dependency on the eval set here for oracle stuff. TODO This
+    # definitely means this block should be broken into another
+    # function.
+    eval_inflections = kws_eval.keyword_inflections(babel_code)
+    eval_inflection_list = []
+    for lemma in eval_inflections:
+        eval_inflection_list.extend(eval_inflections[lemma])
+    eval_inflection_set = set(eval_inflection_list)
 
-        # We actually need to output words that were in
-        # the lexicon but not the eval set. This means we have a
-        # dependency on the eval set here for oracle stuff. TODO This
-        # definitely means this block should be broken into another
-        # function.
-        eval_inflections = kws_eval.keyword_inflections(babel_code)
-        eval_inflection_list = []
-        for lemma in eval_inflections:
-            eval_inflection_list.extend(eval_inflections[lemma])
-        eval_inflection_set = set(eval_inflection_list)
+    lex_forms = set()
+    # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
+    # by filtering out words appropriately.
+    for fn in ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]:
+        logging.info(f"Filtering {fn}...")
+        with open(dict_uni / fn) as dict_f, open(dict_uni_filt / fn, "w") as dict_filt_f:
+            for line in dict_f:
+                ortho, *_ = line.split("\t")
+                lex_forms.add(ortho)
+                if ortho.startswith("<") and ortho.endswith(">"):
+                    print(line, file=dict_filt_f, end="")
+                elif ortho in hyp_inflections:
+                    print(line, file=dict_filt_f, end="")
+                elif ortho not in eval_inflection_set:
+                    print(line, file=dict_filt_f, end="")
 
-        lex_forms = set()
+    if add_spurious:
         # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
-        # by filtering out words appropriately.
-        for fn in ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]:
-            logging.info(f"Filtering {fn}...")
-            with open(dict_uni / fn) as dict_f, open(dict_uni_filt / fn, "w") as dict_filt_f:
-                for line in dict_f:
-                    ortho, *_ = line.split("\t")
-                    lex_forms.add(ortho)
-                    if ortho.startswith("<") and ortho.endswith(">"):
-                        print(line, file=dict_filt_f, end="")
-                    elif ortho in hyp_inflections:
-                        print(line, file=dict_filt_f, end="")
-                    elif ortho not in eval_inflection_set:
-                        print(line, file=dict_filt_f, end="")
+        # by adding spurious entries from the inflection tool as appropriate.
+        dict_fns = ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]
+        dict_fs = [open(dict_uni_filt / fn, "a") for fn in dict_fns]
+        logging.info(f"Adding spurious entries to lexicons...")
+        # Now add spurious forms that were generated, if they're
+        # not already in the lexicon.
+        added = set()
+        for lemma in eval_inflections:
+            for bundle in hyp_paradigms[lemma]:
+                for ortho in hyp_paradigms[lemma][bundle]:
+                    if ortho not in lex_forms and ortho not in added:
+                        added.add(ortho)
+                        # TODO Generalize beyond rule based G2P.
+                        pronunciation = g2p.rule_based_g2p(
+                                babel_iso.babel2iso[babel_code], ortho)
+                        # "lexiconp.txt"
+                        print(f"{ortho}\t1.0\t{pronunciation}", file=dict_fs[0])
+                        print(f"{ortho}\t{pronunciation}", file=dict_fs[1])
+                        print(f"{ortho}\t{pronunciation}", file=dict_fs[2])
 
-        if add_spurious:
-            # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
-            # by adding spurious entries from the inflection tool as appropriate.
-            dict_fns = ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]
-            dict_fs = [open(dict_uni_filt / fn, "a") for fn in dict_fns]
-            logging.info(f"Adding spurious entries to lexicons...")
-            # Now add spurious forms that were generated, if they're
-            # not already in the lexicon.
-            added = set()
-            for lemma in eval_inflections:
-                for bundle in hyp_paradigms[lemma]:
-                    for ortho in hyp_paradigms[lemma][bundle]:
-                        if ortho not in lex_forms and ortho not in added:
-                            added.add(ortho)
-                            # TODO Generalize beyond rule based G2P.
-                            pronunciation = g2p.rule_based_g2p(
-                                    babel_iso.babel2iso[babel_code], ortho)
-                            # "lexiconp.txt"
-                            print(f"{ortho}\t1.0\t{pronunciation}", file=dict_fs[0])
-                            print(f"{ortho}\t{pronunciation}", file=dict_fs[1])
-                            print(f"{ortho}\t{pronunciation}", file=dict_fs[2])
+        for f in dict_fs:
+            f.close()
 
-            for f in dict_fs:
-                f.close()
+    lang_uni_filt = Path(
+            f"data/{babel_code}_test/data/lang_universal{exp_affix}")
+    # Create a lang directory based on that filtered dictionary.
+    args = ["./utils/prepare_lang.sh",
+            "--share-silence-phones", "true",
+            "--phone-symbol-table", "data/lang_universal/phones.txt",
+            str(dict_uni_filt), "<unk>",
+            str(dict_uni_filt / "tmp.lang"),
+            str(lang_uni_filt)]
+    run(args, check=True)
 
-        lang_uni_filt = Path(
-                f"data/{babel_code}_test/data/lang_universal{exp_affix}")
-        # Create a lang directory based on that filtered dictionary.
-        args = ["./utils/prepare_lang.sh",
-                "--share-silence-phones", "true",
-                "--phone-symbol-table", "data/lang_universal/phones.txt",
-                str(dict_uni_filt), "<unk>",
-                str(dict_uni_filt / "tmp.lang"),
-                str(lang_uni_filt)]
-        run(args, check=True)
+    logging.info("Training LM...")
+    data_dir = lang_uni_filt.parent
+    # Note that we need to retrain the language using the filtered
+    # words.txt file.
+    args = ["./local/train_lms_srilm.sh",
+            "--oov-symbol", "<unk>",
+            "--train-text", str(data_dir / "train" / "text"),
+            "--words-file", str(lang_uni_filt / "words.txt"),
+            data_dir, str(data_dir / f"srilm{exp_affix}")]
+    run(args, check=True)
 
-        logging.info("Training LM...")
-        data_dir = lang_uni_filt.parent
-        # Note that we need to retrain the language using the filtered
-        # words.txt file.
-        args = ["./local/train_lms_srilm.sh",
-                "--oov-symbol", "<unk>",
-                "--train-text", str(data_dir / "train" / "text"),
-                "--words-file", str(lang_uni_filt / "words.txt"),
-                data_dir, str(data_dir / f"srilm{exp_affix}")]
-        run(args, check=True)
-
-        logging.info("Converting ARPA LM to G.fst...")
-        # Convert the ARPA LM file to an FST.
-        args = ["./local/arpa2G.sh",
-                str(data_dir / f"srilm{exp_affix}" / "lm.gz"),
-                lang_uni_filt, lang_uni_filt]
-        run(args, check=True)
+    logging.info("Converting ARPA LM to G.fst...")
+    # Convert the ARPA LM file to an FST.
+    args = ["./local/arpa2G.sh",
+            str(data_dir / f"srilm{exp_affix}" / "lm.gz"),
+            lang_uni_filt, lang_uni_filt]
+    run(args, check=True)
 
 def prepare_align():
     """ Prepares training data by aligning audio data to text."""
@@ -485,7 +481,8 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
     """ Establish KWS lists and ground truth.
 
         This probably should only have to change when the KW list and ground
-        truth change, not when L.fst or G.fst changes.
+        truth change, not when L.fst or G.fst changes. Except it does currently
+        set up directories using an exp_affix. Perhaps this should change.
 
         exp_affix (experiment affix) is a string that identifies different
         experimental configurations and is used to disambiguate dict, lang, and
@@ -614,18 +611,17 @@ if __name__ == "__main__":
     # NOTE We prepare pronunciation lexicons and LMS for the languages below,
     # but don't use acoustic data.
     recog_langs = train_langs + ["107", "201", "307", "404"]
-    recog_langs = ["404"]
+    #prepare_langs(train_langs, recog_langs)
 
     # Establish the KW list.
     #kws_eval.keyword_inflections(args.test_lang, write_to_fn=True)
 
     # The core steps in the pipeline.
-    #prepare_langs(train_langs, recog_langs)
-    if args.rm_missing or args.add_spurious:
-        prepare_recog_langs(recog_langs,
-                            rm_missing=args.rm_missing
-                            add_spurious=args.add_spurious,
-                            exp_affix=args.exp_affix)
+    #if args.rm_missing or args.add_spurious:
+    #    prepare_test_lang(args.test_lang,
+    #                        rm_missing=args.rm_missing,
+    #                        add_spurious=args.add_spurious,
+    #                        exp_affix=args.exp_affix)
 
     #prepare_align()
     #train()
@@ -639,18 +635,18 @@ if __name__ == "__main__":
 
     ##### Preparing decoding #####
     # Make HCLG.fst.
-    mkgraph(args.test_lang, exp_affix=args.exp_affix)
+    #mkgraph(args.test_lang, exp_affix=args.exp_affix)
     # Prepare MFCCs and CMVN stats.
     #prepare_test_feats(args.test_lang, args, env)
     # Prepare ivectors
     #prepare_test_ivectors(args.test_lang, args, env)
 
-    decode(args.test_lang, args, env, exp_affix=args.exp_affix)
+    #decode(args.test_lang, args, env, exp_affix=args.exp_affix)
 
     ##### KWS #####
-    prepare_kws(args.test_lang,
-                exp_affix=args.exp_affix,
-                custom_kwlist=args.custom_kwlist)
+    #prepare_kws(args.test_lang,
+    #            exp_affix=args.exp_affix,
+    #            custom_kwlist=args.custom_kwlist)
     kws(args.test_lang, env,
         exp_affix=args.exp_affix)
     #wer_score(args.test_lang, env)
