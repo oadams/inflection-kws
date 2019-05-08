@@ -622,8 +622,15 @@ if __name__ == "__main__":
     #prepare_align()
     #train()
 
+    # Prepare MFCCs and CMVN stats for the test language.
+    prepare_test_feats(args.test_lang, args, env)
+    # Prepare ivectors for the test language.
+    prepare_test_ivectors(args.test_lang, args, env)
+
     # Establish the KW eval list.
-    eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang, write_to_fn=True)
+    eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang,
+                                                    args.inflection_method,
+                                                    write_to_fn=True)
 
     if args.rm_missing or args.add_spurious:
         # Read in the inflections that were hypothesized. We use these to
@@ -637,7 +644,6 @@ if __name__ == "__main__":
                           rm_missing=args.rm_missing,
                           add_spurious=args.add_spurious,
                           exp_affix=args.exp_affix)
-
 
     # TODO Perhaps break this second decoding part off into a separate stage
     # which gets determined by a command line argument. For example, run.py

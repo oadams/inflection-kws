@@ -50,10 +50,14 @@ for babel_code in ["404"]:
     RESOURCE_DIRS[babel_code] = Path(
             f"/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_{babel_code}/"
             f"conversational/")
-for babel_code in ["206"]:
+for babel_code in ["103", "206"]:
     RESOURCE_DIRS[babel_code] = Path(
             f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
             f"/release-current/conversational/")
+for babel_code in ["105"]:
+    RESOURCE_DIRS[babel_code] = Path(
+            f"/export/babel/data/{babel_code}-{babel2name[babel_code]}/"
+            f"/release-current-b/conversational/")
 
 
 def load_babel_dev_toks(babel_code, resource_dirs=RESOURCE_DIRS):
@@ -145,7 +149,7 @@ def kwlist_xml(babel_code: str,
     xml_tags.append("</kwlist>")
     return "\n".join(xml_tags)
 
-def create_eval_paradigms(babel_code, write_to_fn=False):
+def create_eval_paradigms(babel_code, inflection_method, write_to_fn=False):
     """ Constructs a KW test set.
 
         The approach taken is to consider Unimorph paradigms and inflections
@@ -189,7 +193,8 @@ def create_eval_paradigms(babel_code, write_to_fn=False):
     # Now load DTL hyps so we can additionally constrain based on Garrett's DTL
     # set. By this I mean the lemmas that were being used to generate
     # inflections, not the inflections themselves.
-    dtl_hyps = inflections.load_dtl_hypotheses(babel2iso[babel_code])
+    dtl_hyps = inflections.load_hypotheses(babel2iso[babel_code],
+                                           method=inflection_method)
     logging.info(f"DTL lemmas: {len(set(dtl_hyps.keys()))}")
 
     covered_lexemes = dict()

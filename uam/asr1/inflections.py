@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-DTL_HYPS_DIR = Path(f"/../../G2PHypotheses/")
+DTL_HYPS_DIR = Path(f"../../G2PHypotheses/")
 
 def load_hypotheses(iso_code, method="DTL",
                                pos_sets=["nouns"]):
