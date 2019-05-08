@@ -623,9 +623,9 @@ if __name__ == "__main__":
     #train()
 
     # Prepare MFCCs and CMVN stats for the test language.
-    prepare_test_feats(args.test_lang, args, env)
+    #prepare_test_feats(args.test_lang, args, env)
     # Prepare ivectors for the test language.
-    prepare_test_ivectors(args.test_lang, args, env)
+    #prepare_test_ivectors(args.test_lang, args, env)
 
     # Establish the KW eval list.
     eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang,
@@ -654,13 +654,9 @@ if __name__ == "__main__":
 
     ##### Preparing decoding #####
     # Make HCLG.fst.
-    #mkgraph(args.test_lang, exp_affix=args.exp_affix)
-    # Prepare MFCCs and CMVN stats.
-    #prepare_test_feats(args.test_lang, args, env)
-    # Prepare ivectors
-    #prepare_test_ivectors(args.test_lang, args, env)
+    mkgraph(args.test_lang, exp_affix=args.exp_affix)
 
-    #decode(args.test_lang, args, env, exp_affix=args.exp_affix)
+    decode(args.test_lang, args, env, exp_affix=args.exp_affix)
 
     ##### KWS #####
     prepare_kws(args.test_lang,
