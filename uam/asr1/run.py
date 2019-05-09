@@ -23,6 +23,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
+import string
 import subprocess
 from subprocess import run
 import sys
@@ -96,6 +97,9 @@ def get_args():
     parser.add_argument("--inflection_method", type=str, default="DTL",
                         help=("A string indicating the method used for"
                               " inflection hypothesis generation."))
+    parser.add_argument("--lm_train_text", type=str, default=None,
+                        help=("Specify a text file to use as training data for the"
+                        " language model, instead of the default Babel data."))
     # TODO --custom-kwlist will always be True, since the default is True
     # (sensible), but calling with the flag also sets to True. Need to instead
     # add an option to explicitly select the default Babel kwlist (which isn't
@@ -117,6 +121,8 @@ def get_args():
         exp_affix = f"{exp_affix}_rm-missing"
     if args.add_spurious:
         exp_affix = f"{exp_affix}_add-spurious"
+    if args.lm_train_text:
+        exp_affix = f"{exp_affix}_lm-text={Path(args.lm_train_text).stem}"
     args.exp_affix = exp_affix
 
     return args
@@ -146,6 +152,7 @@ def prepare_langs(train_langs, recog_langs):
 def prepare_test_lang(babel_code,
                       hyp_paradigms, eval_paradigms,
                       rm_missing=True, add_spurious=True,
+                      lm_train_text=None,
                       exp_affix="_rm_missing_add_spurious"):
     """
     Prepares lang dirs for recog_langs again. This needs to be called after a
@@ -255,13 +262,34 @@ def prepare_test_lang(babel_code,
             str(lang_uni_filt)]
     run(args, check=True)
 
-    logging.info("Training LM...")
     data_dir = lang_uni_filt.parent
+
+    if lm_train_text:
+        # Preprocess the LM training text to an appropriate format.
+        # 1. Add in an utterance-ID column
+        # 2. Remove punctuation.
+        # 3. Ensure there's no blank lines (Common in Bible data in the format
+        # Matt Post used).
+        fn = Path(lm_train_text).name
+        processed_lm_text_path = Path(data_dir / "train" / fn)
+        with open(processed_lm_text_path, "w") as out_f, open(lm_train_text) as in_f:
+            for line in in_f:
+                if line != "\n": # If it's not an empty line
+                    print("STUB_UTT_ID ", end="", file=out_f)
+                    print(line.translate(str.maketrans('', '', string.punctuation)),
+                          file=out_f, end="")
+
+    else:
+        # If training text for the language model hasn't been specified, then
+        # default to the Babel textual training data.
+        lm_train_text = str(data_dir / "train" / "text")
+
+    logging.info(f"Training LM with {lm_train_text}...")
     # Note that we need to retrain the language using the filtered
     # words.txt file.
     args = ["./local/train_lms_srilm.sh",
             "--oov-symbol", "<unk>",
-            "--train-text", str(data_dir / "train" / "text"),
+            "--train-text", lm_train_text,
             "--words-file", str(lang_uni_filt / "words.txt"),
             data_dir, str(data_dir / f"srilm{exp_affix}")]
     run(args, check=True)
@@ -637,7 +665,7 @@ if __name__ == "__main__":
                                                     args.inflection_method,
                                                     write_to_fn=True)
 
-    if args.rm_missing or args.add_spurious:
+    if args.rm_missing or args.add_spurious or args.lm_train_text:
         # Read in the inflections that were hypothesized. We use these to
         # adjust the lexicon that is used for decoding accordingly.
         # TODO generalize this beyond DTL
@@ -648,6 +676,7 @@ if __name__ == "__main__":
         prepare_test_lang(args.test_lang, hyp_paradigms, eval_paradigms,
                           rm_missing=args.rm_missing,
                           add_spurious=args.add_spurious,
+                          lm_train_text=args.lm_train_text,
                           exp_affix=args.exp_affix)
 
     # TODO Perhaps break this second decoding part off into a separate stage
