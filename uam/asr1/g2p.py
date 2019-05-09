@@ -80,7 +80,18 @@ kat_rules = {
                 "ჱ": "E i",
             }
 
+#tur_rules = {
+#        "A": "a:_",
+#        "a": "a:_",
+#        "B": "b_",
+#        "b": "b_",
+#        "C": "dZ_",
+#}
+
 def rule_based_g2p(iso_code, ortho):
     #logging.info(f"Converting {ortho} in language {iso_code} to phones...")
     if iso_code == "kat":
         return " ".join([kat_rules[c] for c in ortho])
+
+    raise NotImplementedError(
+            f"ISO 639-3 code '{iso_code}' has no G2P rules implemented.")
