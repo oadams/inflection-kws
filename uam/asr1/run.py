@@ -198,6 +198,12 @@ def prepare_test_lang(babel_code,
 
     # Lex forms will contain all the word forms in the Babel "oracle" lexicon.
     lex_forms = set()
+    with open(dict_uni / "lexicon.txt") as dict_f:
+        for line in dict_f:
+            ortho, *_ = line.split("\t")
+            lex_forms.add(ortho)
+
+
     # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
     # by filtering out words appropriately.
     if rm_missing:
@@ -206,7 +212,6 @@ def prepare_test_lang(babel_code,
             with open(dict_uni / fn) as dict_f, open(dict_uni_filt / fn, "w") as dict_filt_f:
                 for line in dict_f:
                     ortho, *_ = line.split("\t")
-                    lex_forms.add(ortho)
                     if ortho.startswith("<") and ortho.endswith(">"):
                         print(line, file=dict_filt_f, end="")
                     elif ortho in hyp_inflections:
@@ -636,7 +641,7 @@ if __name__ == "__main__":
         # Read in the inflections that were hypothesized. We use these to
         # adjust the lexicon that is used for decoding accordingly.
         # TODO generalize this beyond DTL
-        hyp_paradigms = inflections.load_hypotheses(iso_code,
+        hyp_paradigms = inflections.load_hypotheses(babel_iso.babel2iso[args.test_lang],
                                                     method=args.inflection_method)
 
         # Now prepare the lang directory, with the lexicon and LM.
