@@ -105,7 +105,7 @@ def get_args():
                         " to add to the lexicon."))
     parser.add_argument("--rules_g2p", action="store_true", default=False,
                         help=("Use rules-based G2P instead of phonetisaurus."
-                             "See g2p.py"))
+                              " See g2p.py"))
     # TODO --custom-kwlist will always be True, since the default is True
     # (sensible), but calling with the flag also sets to True. Need to instead
     # add an option to explicitly select the default Babel kwlist (which isn't
@@ -127,6 +127,8 @@ def get_args():
         exp_affix = f"{exp_affix}_rm-missing"
     if args.add_spurious:
         exp_affix = f"{exp_affix}_add-spurious"
+    if args.rules_g2p:
+        exp_affix = f"{exp_affix}_rules-g2p"
     if args.lm_train_text:
         exp_affix = f"{exp_affix}_lm-text={Path(args.lm_train_text).stem}"
     if args.k:
@@ -160,7 +162,7 @@ def prepare_langs(train_langs, recog_langs):
 def prepare_test_lang(babel_code,
                       hyp_paradigms, eval_paradigms,
                       rm_missing=True, add_spurious=True,
-                      lm_train_text=None,
+                      lm_train_text=None, rules_g2p=False,
                       exp_affix="_rm_missing_add_spurious"):
     """
     Prepares lang dirs for recog_langs again. This needs to be called after a
@@ -254,7 +256,7 @@ def prepare_test_lang(babel_code,
                         words_to_g2p.append(ortho)
 
         g2p_pairs = []
-        if args.rules_g2p
+        if rules_g2p:
             if babel_code not in ["404"]:
                 raise NotImplementedError("Rules-based G2P not implemented for"
                                           f" language {babel_code}.")
@@ -262,6 +264,8 @@ def prepare_test_lang(babel_code,
                 pronunciation = g2p.rule_based_g2p(babel_iso.babel2iso[babel_code], ortho)
                 g2p_pairs.append((ortho, pronunciation))
         else:
+            # Then use pretrained phonetisaurus models to do G2P.
+
             # Write words to G2P to a file
             wordform_path = dict_uni_filt / "spurious-wordforms"
             with open(wordform_path, "w") as f:
@@ -712,6 +716,7 @@ if __name__ == "__main__":
                           rm_missing=args.rm_missing,
                           add_spurious=args.add_spurious,
                           lm_train_text=args.lm_train_text,
+                          rules_g2p=args.rules_g2p,
                           exp_affix=args.exp_affix)
 
     # TODO Perhaps break this second decoding part off into a separate stage

@@ -112,6 +112,8 @@ def phonetisaurus_g2p(babel_code, in_fn, out_fn, train_size=5000):
 
 def rule_based_g2p(iso_code, ortho):
     #logging.info(f"Converting {ortho} in language {iso_code} to phones...")
+    if ortho.strip() == "":
+        raise ValueError(f"Empty orthographic form: '{ortho}'.")
     if iso_code == "kat":
         return " ".join([kat_rules[c] for c in ortho])
 

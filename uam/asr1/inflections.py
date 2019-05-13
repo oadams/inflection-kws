@@ -48,6 +48,9 @@ def load_hypotheses(iso_code, k=None, method="DTL", pos_sets=["nouns"],
                     continue
                 lemma, bundle = fields[0].split("+")
                 inflection_hyp = fields[1]
+                if inflection_hyp == "":
+                    # We don't use empty inflections.
+                    continue
 
                 if lemma in hyps:
                     if bundle in hyps[lemma]:
