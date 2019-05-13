@@ -27,7 +27,7 @@ def load_hypotheses(iso_code, k=None, method="DTL", pos_sets=["nouns"],
 
     if method == "DTL":
         suffix = "out"
-    elif method == "ensemble"
+    elif method == "ensemble":
         suffix = "Ens"
     elif method == "RNN":
         suffix = "RNN"
@@ -43,6 +43,9 @@ def load_hypotheses(iso_code, k=None, method="DTL", pos_sets=["nouns"],
         with open(hyps_path) as f:
             for line in f:
                 fields = line.split("\t")
+                if len(fields) != 5:
+                    # Then it's probably an empty line between bundles
+                    continue
                 lemma, bundle = fields[0].split("+")
                 inflection_hyp = fields[1]
 
@@ -54,9 +57,10 @@ def load_hypotheses(iso_code, k=None, method="DTL", pos_sets=["nouns"],
                 else:
                     hyps[lemma] = {bundle: [inflection_hyp]}
 
-    for lemma in hyps:
-        for bundle in hyps[lemma]:
-            hyps[lemma][bundle] = hyps[lemma][bundle][:k]
-            assert len(hyps[lemma][bundle]) <= k
+    if k:
+        for lemma in hyps:
+            for bundle in hyps[lemma]:
+                hyps[lemma][bundle] = hyps[lemma][bundle][:k]
+                assert len(hyps[lemma][bundle]) <= k
 
     return hyps

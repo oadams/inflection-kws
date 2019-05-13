@@ -94,15 +94,18 @@ def get_args():
                         " transcription. This is not needed for keyword search"
                         " but is useful for debugging, to see if the word"
                         " lattices are good."))
-    parser.add_argument("--inflection_method", type=str, default="DTL",
+    parser.add_argument("--inflection_method", type=str, default="ensemble",
                         help=("A string indicating the method used for"
                               " inflection hypothesis generation."))
     parser.add_argument("--lm_train_text", type=str, default=None,
                         help=("Specify a text file to use as training data for the"
                         " language model, instead of the default Babel data."))
-    parser.add_argument("--k", type=str, default=None,
+    parser.add_argument("--k", type=int, default=None,
                         help=("The number of inflections per (lemma, bundle)"
-                        " to add to the lexicon"))
+                        " to add to the lexicon."))
+    parser.add_argument("--rules_g2p", action="store_true", default=False,
+                        help=("Use rules-based G2P instead of phonetisaurus."
+                             "See g2p.py"))
     # TODO --custom-kwlist will always be True, since the default is True
     # (sensible), but calling with the flag also sets to True. Need to instead
     # add an option to explicitly select the default Babel kwlist (which isn't
@@ -119,13 +122,15 @@ def get_args():
         assert False
 
     # Prepare an experiment affix based on relevant flags.
-    exp_affix = ""
+    exp_affix = f"_inflection-method={args.inflection_method}"
     if args.rm_missing:
         exp_affix = f"{exp_affix}_rm-missing"
     if args.add_spurious:
         exp_affix = f"{exp_affix}_add-spurious"
     if args.lm_train_text:
         exp_affix = f"{exp_affix}_lm-text={Path(args.lm_train_text).stem}"
+    if args.k:
+        exp_affix = f"{exp_affix}_k={args.k}"
     args.exp_affix = exp_affix
 
     return args
@@ -248,32 +253,34 @@ def prepare_test_lang(babel_code,
                         # TODO Generalize beyond rule based G2P.
                         words_to_g2p.append(ortho)
 
-        # Write words to G2P to a file
-        wordform_path = dict_uni_filt / "spurious-wordforms"
-        with open(wordform_path, "w") as f:
-            for wordform in words_to_g2p:
-                print(wordform, file=f)
+        g2p_pairs = []
+        if args.rules_g2p
+            if babel_code not in ["404"]:
+                raise NotImplementedError("Rules-based G2P not implemented for"
+                                          f" language {babel_code}.")
+            for ortho in words_to_g2p:
+                pronunciation = g2p.rule_based_g2p(babel_iso.babel2iso[babel_code], ortho)
+                g2p_pairs.append((ortho, pronunciation))
+        else:
+            # Write words to G2P to a file
+            wordform_path = dict_uni_filt / "spurious-wordforms"
+            with open(wordform_path, "w") as f:
+                for wordform in words_to_g2p:
+                    print(wordform, file=f)
 
-        # Call phonetisaurus on them
-        g2p_out_path = f"{wordform_path}.g2p"
-        g2p.phonetisaurus_g2p(babel_code, wordform_path, g2p_out_path)
+            # Call phonetisaurus on them
+            g2p_out_path = f"{wordform_path}.g2p"
+            g2p.phonetisaurus_g2p(babel_code, wordform_path, g2p_out_path)
 
-        if babel_code == "404":
-            raise NotImplementedError("Need a switch to specify rule-based G2P"
-                                      " for consistent results.")
-        # TODO Need a command line switch to determine whether we use rules or 
-        # Write the lexicon files
-        #pronunciation = g2p.rule_based_g2p(
-        #        babel_iso.babel2iso[babel_code], ortho)
+            # Load G2P'd words
+            with open(g2p_out_path) as f:
+                g2p_pairs = [line.strip().split("\t") for line in f]
 
-        # Write G2P'd words to the lexicon.
-        with open(g2p_out_path) as f:
-            for line in f:
-                ortho, pronunciation = line.strip().split("\t")
-                # "lexiconp.txt"
-                print(f"{ortho}\t1.0\t{pronunciation}", file=dict_fs[0])
-                print(f"{ortho}\t{pronunciation}", file=dict_fs[1])
-                print(f"{ortho}\t{pronunciation}", file=dict_fs[2])
+        for ortho, pronunciation in g2p_pairs:
+            print(f"{ortho}\t{pronunciation}", file=dict_fs[1])
+            print(f"{ortho}\t{pronunciation}", file=dict_fs[2])
+            # "lexiconp.txt"
+            print(f"{ortho}\t1.0\t{pronunciation}", file=dict_fs[0])
 
         for f in dict_fs:
             f.close()
