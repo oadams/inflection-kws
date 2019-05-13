@@ -1,6 +1,10 @@
 """ Interface that allows us to deploy various G2P mechanisms. """
 
 import logging
+from pathlib import Path
+from subprocess import run
+
+import babel_iso
 
 # Georgian G2P rules from Wikipedia using IPA.
 kat_rules = {
@@ -87,6 +91,24 @@ kat_rules = {
 #        "b": "b_",
 #        "C": "dZ_",
 #}
+
+# TODO Phonetisaurus G2P and rule based G2P functions should have a consistent
+# interface. Currently one takes a babel code while the other takes an ISO
+# code.
+def phonetisaurus_g2p(babel_code, in_fn, out_fn, train_size=5000):
+    """ Performs G2P using phonetisaurus models trained my Matthew Wiesner on
+    varying amounts of training data."""
+
+    model_path = Path(f"/export/a15/MStuDy/Matthew/LORELEI/kaldi/egs/"
+                      f"universal_acoustic_model/g2p_selection_v2/results/"
+                      f"{babel_code}_{babel_iso.babel2name[babel_code]}/"
+                      f"Random/budget_{train_size}/trial.1/g2p/g2p.fst")
+
+    args = ["phonetisaurus-apply",
+            "--model", str(model_path),
+            "--word_list", str(in_fn)]
+    with open(out_fn, "w") as out_f:
+        run(args, stdout=out_f)
 
 def rule_based_g2p(iso_code, ortho):
     #logging.info(f"Converting {ortho} in language {iso_code} to phones...")

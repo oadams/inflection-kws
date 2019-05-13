@@ -226,6 +226,8 @@ def prepare_test_lang(babel_code,
                     elif ortho not in eval_inflection_set:
                         print(line, file=dict_filt_f, end="")
 
+
+    words_to_g2p = []
     if add_spurious:
         # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
         # by adding spurious entries from the inflection tool as appropriate.
@@ -241,12 +243,34 @@ def prepare_test_lang(babel_code,
                     if ortho not in lex_forms and ortho not in added:
                         added.add(ortho)
                         # TODO Generalize beyond rule based G2P.
-                        pronunciation = g2p.rule_based_g2p(
-                                babel_iso.babel2iso[babel_code], ortho)
-                        # "lexiconp.txt"
-                        print(f"{ortho}\t1.0\t{pronunciation}", file=dict_fs[0])
-                        print(f"{ortho}\t{pronunciation}", file=dict_fs[1])
-                        print(f"{ortho}\t{pronunciation}", file=dict_fs[2])
+                        words_to_g2p.append(ortho)
+
+        # Write words to G2P to a file
+        wordform_path = dict_uni_filt / "spurious-wordforms"
+        with open(wordform_path, "w") as f:
+            for wordform in words_to_g2p:
+                print(wordform, file=f)
+
+        # Call phonetisaurus on them
+        g2p_out_path = f"{wordform_path}.g2p"
+        g2p.phonetisaurus_g2p(babel_code, wordform_path, g2p_out_path)
+
+        if babel_code == "404":
+            raise NotImplementedError("Need a switch to specify rule-based G2P"
+                                      " for consistent results.")
+        # TODO Need a command line switch to determine whether we use rules or 
+        # Write the lexicon files
+        #pronunciation = g2p.rule_based_g2p(
+        #        babel_iso.babel2iso[babel_code], ortho)
+
+        # Write G2P'd words to the lexicon.
+        with open(g2p_out_path) as f:
+            for line in f:
+                ortho, pronunciation = line.strip().split("\t")
+                # "lexiconp.txt"
+                print(f"{ortho}\t1.0\t{pronunciation}", file=dict_fs[0])
+                print(f"{ortho}\t{pronunciation}", file=dict_fs[1])
+                print(f"{ortho}\t{pronunciation}", file=dict_fs[2])
 
         for f in dict_fs:
             f.close()

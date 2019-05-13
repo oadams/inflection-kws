@@ -12,4 +12,7 @@ export PATH=$PWD/utils/:$KALDI_ROOT/tools/openfst/bin:$KALDI_ROOT/tools/sph2pipe
 export LC_ALL=C
 
 cpanm --local-lib=~/perl5 local::lib &> /dev/null && eval $(perl -I ~/perl5/lib/perl5/ -Mlocal::lib)
+# TODO Shouldn't be hardcoding my directory here. Perhaps can use relative?
 export PATH=$PATH:/export/b13/oadams/kws/tools/F4DE-3.5.0/bin
+export PATH=$PATH:/export/b13/oadams/kws/tools/Phonetisaurus/
+export PATH=$PATH:/export/b13/oadams/kws/tools/Phonetisaurus/src/scripts
