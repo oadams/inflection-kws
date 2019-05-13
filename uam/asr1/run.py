@@ -100,6 +100,9 @@ def get_args():
     parser.add_argument("--lm_train_text", type=str, default=None,
                         help=("Specify a text file to use as training data for the"
                         " language model, instead of the default Babel data."))
+    parser.add_argument("--k", type=str, default=None,
+                        help=("The number of inflections per (lemma, bundle)"
+                        " to add to the lexicon"))
     # TODO --custom-kwlist will always be True, since the default is True
     # (sensible), but calling with the flag also sets to True. Need to instead
     # add an option to explicitly select the default Babel kwlist (which isn't
@@ -694,6 +697,7 @@ if __name__ == "__main__":
         # adjust the lexicon that is used for decoding accordingly.
         # TODO generalize this beyond DTL
         hyp_paradigms = inflections.load_hypotheses(babel_iso.babel2iso[args.test_lang],
+                                                    k=args.k,
                                                     method=args.inflection_method)
 
         # Now prepare the lang directory, with the lexicon and LM.

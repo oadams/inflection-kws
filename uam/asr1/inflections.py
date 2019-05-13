@@ -1,16 +1,19 @@
 """ Interface to the inflection generation tools """
 
+import logging
 from pathlib import Path
 
-DTL_HYPS_DIR = Path(f"../../G2PHypotheses/")
+HYPS_DIR = Path(f"../../G2PHypotheses/")
 
-def load_hypotheses(iso_code, method="DTL",
-                               pos_sets=["nouns"]):
+def load_hypotheses(iso_code, k=None, method="DTL", pos_sets=["nouns"],
+                    hyps_dir=HYPS_DIR):
     """ Loads hypothesized inflections
 
         method is a string that indicates what method was used to generate the
         hypotheses. The default is DTL, which uses Garrett Nicolai's DTL
         variation.
+
+        k is the number of inflections per (lemma, bundle) pair to use.
 
         pos_sets specifies what pos sets to explore. The default is nouns.
     """
@@ -23,12 +26,20 @@ def load_hypotheses(iso_code, method="DTL",
     #     hyps_path = Path(f"/export/a14/yarowsky-lab/gnicolai/G2PHypotheses/swh.verbs.out")
 
     if method == "DTL":
-        hyps_dir = DTL_HYPS_DIR
+        suffix = "out"
+    elif method == "ensemble"
+        suffix = "Ens"
+    elif method == "RNN":
+        suffix = "RNN"
+    else:
+        raise ValueError(f"Invalid method {method}")
+
 
     hyps = {}
 
     for pos_set in pos_sets:
-        hyps_path = hyps_dir / f"{iso_code}.{pos_set}.out"
+        hyps_path = hyps_dir / f"{iso_code}.{pos_set}.{suffix}"
+        logging.info(f"Loading inflection hypotheses from {hyps_path}...")
         with open(hyps_path) as f:
             for line in f:
                 fields = line.split("\t")
@@ -42,5 +53,10 @@ def load_hypotheses(iso_code, method="DTL",
                         hyps[lemma][bundle] = [inflection_hyp]
                 else:
                     hyps[lemma] = {bundle: [inflection_hyp]}
+
+    for lemma in hyps:
+        for bundle in hyps[lemma]:
+            hyps[lemma][bundle] = hyps[lemma][bundle][:k]
+            assert len(hyps[lemma][bundle]) <= k
 
     return hyps
