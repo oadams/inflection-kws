@@ -5,7 +5,7 @@ from pathlib import Path
 
 HYPS_DIR = Path(f"../../G2PHypotheses/")
 
-def load_hypotheses(iso_code, k=None, method="DTL", pos_sets=["nouns"],
+def load_hypotheses(iso_code, k=None, method="ensemble", pos_sets=["nouns"],
                     hyps_dir=HYPS_DIR):
     """ Loads hypothesized inflections
 
@@ -46,7 +46,13 @@ def load_hypotheses(iso_code, k=None, method="DTL", pos_sets=["nouns"],
                 if len(fields) != 5:
                     # Then it's probably an empty line between bundles
                     continue
-                lemma, bundle = fields[0].split("+")
+                if iso_code in ["zul", "swh"]:
+                    # NOTE the ordering of the lemma and the bundle in the
+                    # files in /export/a14/yarowsky-lab/gnicolai/G2PHypotheses
+                    # is inverted for these languages specifically.
+                    bundle, lemma = fields[0].split("+")
+                else:
+                    lemma, bundle = fields[0].split("+")
                 inflection_hyp = fields[1]
                 if inflection_hyp == "":
                     # We don't use empty inflections.
@@ -65,5 +71,7 @@ def load_hypotheses(iso_code, k=None, method="DTL", pos_sets=["nouns"],
             for bundle in hyps[lemma]:
                 hyps[lemma][bundle] = hyps[lemma][bundle][:k]
                 assert len(hyps[lemma][bundle]) <= k
+
+    logging.info(f"Loaded {len(hyps)} lexemes from {hyps_path}...")
 
     return hyps

@@ -122,7 +122,9 @@ def get_args():
         assert False
 
     # Prepare an experiment affix based on relevant flags.
-    exp_affix = f"_inflection-method={args.inflection_method}"
+    exp_affix = ""
+    if args.rm_missing or args.add_spurious:
+        exp_affix = f"_inflection-method={args.inflection_method}"
     if args.rm_missing:
         exp_affix = f"{exp_affix}_rm-missing"
     if args.add_spurious:
