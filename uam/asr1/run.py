@@ -184,13 +184,6 @@ def prepare_test_lang(babel_code,
     # TODO Generalize this beyond nouns
     iso_code = babel_iso.babel2iso[babel_code]
 
-    dict_uni = Path(f"data/{babel_code}_test/data/dict_universal")
-    # TODO Generalize this filename so that other inflection hypotheses
-    # can be used
-    dict_uni_filt = Path(f"data/{babel_code}_test/data/dict_universal{exp_affix}")
-    # Now we Create a new dict_universal/ directory that filters only
-    # for inflections that were hypothesized, or were not in the
-    # evaluation set lexemes.
 
     hyp_inflections = []
     for lemma in hyp_paradigms:
@@ -198,11 +191,22 @@ def prepare_test_lang(babel_code,
             hyp_inflections.extend(hyp_paradigms[lemma][bundle])
     hyp_inflections = set(hyp_inflections)
 
-    # First copy the data
+    # First copy the dictionary data
+    #args = ["rsync", "-av",
+    #        str(dict_uni)+"/", str(dict_uni_filt)]
+    #run(args, check=True)
+    #args = ["rm", "-r", str(dict_uni_filt / "tmp.lang")]
+    #run(args, check=True)
+
+    # Now we Create a new dict_flp* directory that filters only
+    # for inflections that were hypothesized, or were not in the
+    # evaluation set lexemes.
+    dict_flp = Path(f"data/{babel_code}_test/data/dict_flp")
+    dict_flp_filt = Path(f"data/{babel_code}_test/data/dict_flp{exp_affix}")
+    dict_uni_filt = Path(f"data/{babel_code}_test/data/dict_universal{exp_affix}")
+
     args = ["rsync", "-av",
-            str(dict_uni)+"/", str(dict_uni_filt)]
-    run(args, check=True)
-    args = ["rm", "-r", str(dict_uni_filt / "tmp.lang")]
+            str(dict_flp)+"/", str(dict_flp_filt)]
     run(args, check=True)
 
     # We actually need to output words that were in
@@ -217,18 +221,17 @@ def prepare_test_lang(babel_code,
 
     # Lex forms will contain all the word forms in the Babel "oracle" lexicon.
     lex_forms = set()
-    with open(dict_uni / "lexicon.txt") as dict_f:
+    with open(dict_flp / "lexicon.txt") as dict_f:
         for line in dict_f:
             ortho, *_ = line.split("\t")
             lex_forms.add(ortho)
 
-
     # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
     # by filtering out words appropriately.
     if rm_missing:
-        for fn in ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]:
+        for fn in ["lexicon.txt", "nonsilence_lexicon.txt"]:
             logging.info(f"Filtering {fn}...")
-            with open(dict_uni / fn) as dict_f, open(dict_uni_filt / fn, "w") as dict_filt_f:
+            with open(dict_flp / fn) as dict_f, open(dict_flp_filt / fn, "w") as dict_filt_f:
                 for line in dict_f:
                     ortho, *_ = line.split("\t")
                     if ortho.startswith("<") and ortho.endswith(">"):
@@ -238,13 +241,12 @@ def prepare_test_lang(babel_code,
                     elif ortho not in eval_inflection_set:
                         print(line, file=dict_filt_f, end="")
 
-
     words_to_g2p = []
     if add_spurious:
         # Then change lexionp.txt, lexicon.txt, and nonsilence_lexicon.txt
         # by adding spurious entries from the inflection tool as appropriate.
-        dict_fns = ["lexiconp.txt", "lexicon.txt", "nonsilence_lexicon.txt"]
-        dict_fs = [open(dict_uni_filt / fn, "a") for fn in dict_fns]
+        dict_fns = ["lexicon.txt", "nonsilence_lexicon.txt"]
+        dict_fs = [open(dict_flp_filt / fn, "a") for fn in dict_fns]
         logging.info(f"Adding spurious entries to lexicons...")
         # Now add spurious forms that were generated, if they're
         # not already in the lexicon.
@@ -269,7 +271,7 @@ def prepare_test_lang(babel_code,
             # Then use pretrained phonetisaurus models to do G2P.
 
             # Write words to G2P to a file
-            wordform_path = dict_uni_filt / "spurious-wordforms"
+            wordform_path = dict_flp_filt / "spurious-wordforms"
             with open(wordform_path, "w") as f:
                 for wordform in words_to_g2p:
                     print(wordform, file=f)
@@ -283,13 +285,19 @@ def prepare_test_lang(babel_code,
                 g2p_pairs = [line.strip().split("\t") for line in f]
 
         for ortho, pronunciation in g2p_pairs:
-            print(f"{ortho}\t{pronunciation}", file=dict_fs[1])
-            print(f"{ortho}\t{pronunciation}", file=dict_fs[2])
-            # "lexiconp.txt"
-            print(f"{ortho}\t1.0\t{pronunciation}", file=dict_fs[0])
+            for dict_f in dict_fs:
+                print(f"{ortho}\t{pronunciation}", file=dict_f)
 
         for f in dict_fs:
             f.close()
+
+    # Now we prepare the dict directory. This call will also handle mapping
+    # diphthongs to individual phones using maps available in local/phone_maps/
+    args = ["./local/prepare_universal_dict.sh",
+            "--src", str(dict_flp_filt),
+            "--dict", str(dict_uni_filt),
+            f"{str(babel_code)}_test"]
+    run(args, check=True)
 
     lang_uni_filt = Path(
             f"data/{babel_code}_test/data/lang_universal{exp_affix}")
@@ -665,8 +673,8 @@ def kws(lang, env, re_index=True, custom_kwlist=True, exp_affix=""):
             #"--max-states",
             # LM Weights: iterates though a few different LM weights, which
             # basically means we can tune based on this hyperparameter
-            #"--min-lmwt",
-            #"--max-lmwt",
+            "--min-lmwt", "12",
+            "--max-lmwt", "12",
             "--extraid", extraid, # Flag to indicate custom KW list.
             lang_dir, data_dir, decode_dir]
     run(args, check=True)

@@ -195,7 +195,7 @@ def create_eval_paradigms(babel_code, inflection_method, write_to_fn=False):
     # inflections, not the inflections themselves.
     dtl_hyps = inflections.load_hypotheses(babel2iso[babel_code],
                                            method=inflection_method)
-    logging.info(f"DTL lemmas: {len(set(dtl_hyps.keys()))}")
+    logging.info(f"{inflection_method} lemmas: {len(set(dtl_hyps.keys()))}")
 
     covered_lexemes = dict()
     for lemma in unimorph_lexemes:
