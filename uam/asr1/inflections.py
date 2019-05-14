@@ -38,7 +38,7 @@ def load_hypotheses(iso_code, k=None, method="ensemble", pos_sets=["nouns"],
     hyps = {}
 
     for pos_set in pos_sets:
-        hyps_path = hyps_dir / f"{iso_code}.{pos_set}.{suffix}"
+        hyps_path = hyps_dir / f"{iso_code}.{pos_set}.{suffix}.200"
         logging.info(f"Loading inflection hypotheses from {hyps_path}...")
         with open(hyps_path) as f:
             for line in f:
