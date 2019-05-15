@@ -149,7 +149,10 @@ def kwlist_xml(babel_code: str,
     xml_tags.append("</kwlist>")
     return "\n".join(xml_tags)
 
-def create_eval_paradigms(babel_code, inflection_method, write_to_fn=False):
+def create_eval_paradigms(babel_code, inflection_method,
+                          write_to_fn=False,
+                          k=None,
+                          include_spurious=True):
     """ Constructs a KW test set.
 
         The approach taken is to consider Unimorph paradigms and inflections
@@ -194,7 +197,7 @@ def create_eval_paradigms(babel_code, inflection_method, write_to_fn=False):
     # set. By this I mean the lemmas that were being used to generate
     # inflections, not the inflections themselves.
     dtl_hyps = inflections.load_hypotheses(babel2iso[babel_code],
-                                           method=inflection_method)
+                                           method=inflection_method, k=k)
     logging.info(f"{inflection_method} lemmas: {len(set(dtl_hyps.keys()))}")
 
     covered_lexemes = dict()
@@ -265,14 +268,26 @@ def create_eval_paradigms(babel_code, inflection_method, write_to_fn=False):
             filtered_lexemes[lemma] = set(covered_lexemes[lemma])
     logging.info(f"Had {len(covered_lexemes)} lexemes; now has {len(filtered_lexemes)}")
 
-    eval_lexemes = filtered_lexemes
+    eval_lexemes = {}
+    if include_spurious:
+        for lemma in filtered_lexemes:
+            eval_lexemes[lemma] = set(filtered_lexemes[lemma])
+            for bundle in dtl_hyps[lemma]:
+                eval_lexemes[lemma] = eval_lexemes[lemma].union(
+                        set(dtl_hyps[lemma][bundle]))
+    else:
+        eval_lexemes = filtered_lexemes
 
     # Write to a KW list file.
-    kwlist_dir = Path("kwlists/")
+    if include_spurious:
+        kwlist_dir = Path("kwlists/include-spurious")
+    else:
+        kwlist_dir = Path("kwlists/")
     if not kwlist_dir.is_dir():
         kwlist_dir.mkdir()
     if write_to_fn:
-        with open(kwlist_dir / f"{babel_code}.kwlist.xml", "w") as f:
+        kwlist_path = kwlist_dir / f"{babel_code}.kwlist.xml"
+        with open(kwlist_path, "w") as f:
             print(kwlist_xml(babel_code, eval_lexemes, ecf_fn, version_str),
                   file=f)
     return eval_lexemes
