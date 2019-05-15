@@ -106,6 +106,8 @@ def get_args():
     parser.add_argument("--rules_g2p", action="store_true", default=False,
                         help=("Use rules-based G2P instead of phonetisaurus."
                               " See g2p.py"))
+    parser.add_argument("--kwset_spurious", action="store_true", default=False,
+                        help=("Add spurious inflected forms to the KW list."))
     # TODO --custom-kwlist will always be True, since the default is True
     # (sensible), but calling with the flag also sets to True. Need to instead
     # add an option to explicitly select the default Babel kwlist (which isn't
@@ -564,7 +566,8 @@ def wer_score(lang, env, exp_affix=""):
     run(args, check=True)
 
 # TODO clarify how this differentiates from kws_eval.create_eval_paradigms.
-def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
+def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
+                kwset_spurious=True, k=None):
     """ Establish KWS lists and ground truth.
 
         This probably should only have to change when the KW list and ground
@@ -602,8 +605,11 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
         # TODO Don't hardcode the paths. Or at least hardcode good paths.
         # I should instead be calling kws_eval.test_set() or whatever the
         # function is called.
-        kwlist_file = f"kwlists/{lang}.kwlist.xml"
-        out_dir = f"{data_dir}/kwset_custom{exp_affix}"
+        if kwset_spurious:
+            kwlist_file = f"kwlists/k={k}/{lang}.kwlist.xml"
+        else:
+            kwlist_file = f"kwlists/{lang}.kwlist.xml"
+        out_dir = f"{data_dir}/kwset_custom{kwset_affix}"
     else:
         # NOTE Assume the KW list files are in the same directory as the
         # RTTM files. For now, just use KWlist 3.
@@ -614,6 +620,7 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
             kwlist_file = str(kwlist_path)
         out_dir = f"{data_dir}/kws"
 
+    logging.info("Calling local/search/setup.sh")
     # TODO this will also have to generalize to multiple kws sets too.
     args = ["local/search/setup.sh",
             ecf_file,
@@ -621,6 +628,7 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
             kwlist_file, data_dir, lang_dir, out_dir]
     run(args, check=True)
 
+    logging.info("Calling local/search/compile_keywords.sh")
     # Now to compile keywords
     args = ["local/search/compile_keywords.sh",
             "--filter", "OOV=0&&Characters>2",
@@ -636,7 +644,8 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix=""):
         f" ark,t:\"|gzip -c >{out_dir}/keywords.fsts.gz\"",
         shell=True, check=True)
 
-def kws(lang, env, re_index=True, custom_kwlist=True, exp_affix=""):
+def kws(lang, env, re_index=True, custom_kwlist=True,
+        exp_affix="", kwset_affix=""):
     """ Run keyword search.
 
         See kaldi/egs/babel/s5d/local/search/run_search.sh for more details on
@@ -656,8 +665,8 @@ def kws(lang, env, re_index=True, custom_kwlist=True, exp_affix=""):
     extraid=""
     if custom_kwlist:
         # Then local/search/search.sh will create a "kwset_custom" dir.
-        kw_dir = Path(f"{decode_dir}/kwset_custom{exp_affix}")
-        extraid = f"custom{exp_affix}"
+        kw_dir = Path(f"{decode_dir}/kwset_custom{kwset_affix}")
+        extraid = f"custom{kwset_affix}"
 
     # NOTE Need to rm .done.index if I need to re-run indexing. Actually TODO, in
     # general for all these functions I should take a kwarg flag that can be
@@ -711,8 +720,11 @@ if __name__ == "__main__":
     # Establish the KW eval list.
     eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang,
                                                     args.inflection_method,
+                                                    k=args.k,
+                                                    kwset_spurious=args.kwset_spurious,
                                                     write_to_fn=True)
 
+    """
     if args.rm_missing or args.add_spurious or args.lm_train_text:
         # Read in the inflections that were hypothesized. We use these to
         # adjust the lexicon that is used for decoding accordingly.
@@ -741,13 +753,20 @@ if __name__ == "__main__":
     mkgraph(args.test_lang, exp_affix=args.exp_affix)
 
     decode(args.test_lang, args, env, exp_affix=args.exp_affix)
+    """
 
+    if args.kwset_spurious:
+        kwset_affix = f"_k={args.k}"
     ##### KWS #####
     prepare_kws(args.test_lang,
                 exp_affix=args.exp_affix,
+                kwset_spurious=args.kwset_spurious,
+                k=args.k,
+                kwset_affix=kwset_affix,
                 custom_kwlist=args.custom_kwlist)
-    kws(args.test_lang, env,
-        exp_affix=args.exp_affix)
+    #kws(args.test_lang, env,
+    #    exp_affix=args.exp_affix,
+    #    kwset_affix=kwset_affix)
 
     # Computing the word error rate (WER) can be useful for debugging to see if
     # the word lattices generated in decoding are what is causing problems.

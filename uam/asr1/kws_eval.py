@@ -152,7 +152,7 @@ def kwlist_xml(babel_code: str,
 def create_eval_paradigms(babel_code, inflection_method,
                           write_to_fn=False,
                           k=None,
-                          include_spurious=True):
+                          kwset_spurious=True):
     """ Constructs a KW test set.
 
         The approach taken is to consider Unimorph paradigms and inflections
@@ -269,7 +269,7 @@ def create_eval_paradigms(babel_code, inflection_method,
     logging.info(f"Had {len(covered_lexemes)} lexemes; now has {len(filtered_lexemes)}")
 
     eval_lexemes = {}
-    if include_spurious:
+    if kwset_spurious:
         for lemma in filtered_lexemes:
             eval_lexemes[lemma] = set(filtered_lexemes[lemma])
             for bundle in dtl_hyps[lemma]:
@@ -279,8 +279,8 @@ def create_eval_paradigms(babel_code, inflection_method,
         eval_lexemes = filtered_lexemes
 
     # Write to a KW list file.
-    if include_spurious:
-        kwlist_dir = Path("kwlists/include-spurious")
+    if kwset_spurious:
+        kwlist_dir = Path(f"kwlists/k={k}")
     else:
         kwlist_dir = Path("kwlists/")
     if not kwlist_dir.is_dir():
