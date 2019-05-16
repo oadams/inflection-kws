@@ -686,6 +686,9 @@ def kws(lang, env, re_index=True, custom_kwlist=True,
             "--min-lmwt", "12",
             "--max-lmwt", "12",
             "--extraid", extraid, # Flag to indicate custom KW list.
+            # NOTE We will postprocess the results file before doing our own
+            # scoring.
+            "--skip-scoring", "true",
             lang_dir, data_dir, decode_dir]
     run(args, check=True)
 
