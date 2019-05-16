@@ -624,7 +624,8 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
     # TODO this will also have to generalize to multiple kws sets too.
     args = ["local/search/setup.sh",
             ecf_file,
-            rttm_file,
+            # NOTE Going to use the previously generated hitlist
+            #rttm_file,
             kwlist_file, data_dir, lang_dir, out_dir]
     run(args, check=True)
 
