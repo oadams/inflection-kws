@@ -718,6 +718,7 @@ if __name__ == "__main__":
     # Prepare ivectors for the test language.
     #prepare_test_ivectors(args.test_lang, args, env)
 
+    """
     # Establish the KW eval list.
     eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang,
                                                     args.inflection_method,
@@ -725,7 +726,6 @@ if __name__ == "__main__":
                                                     kwset_spurious=args.kwset_spurious,
                                                     write_to_fn=True)
 
-    """
     if args.rm_missing or args.add_spurious or args.lm_train_text:
         # Read in the inflections that were hypothesized. We use these to
         # adjust the lexicon that is used for decoding accordingly.
@@ -759,15 +759,15 @@ if __name__ == "__main__":
     if args.kwset_spurious:
         kwset_affix = f"_k={args.k}"
     ##### KWS #####
-    prepare_kws(args.test_lang,
-                exp_affix=args.exp_affix,
-                kwset_spurious=args.kwset_spurious,
-                k=args.k,
-                kwset_affix=kwset_affix,
-                custom_kwlist=args.custom_kwlist)
-    #kws(args.test_lang, env,
-    #    exp_affix=args.exp_affix,
-    #    kwset_affix=kwset_affix)
+    #prepare_kws(args.test_lang,
+    #            exp_affix=args.exp_affix,
+    #            kwset_spurious=args.kwset_spurious,
+    #            k=args.k,
+    #            kwset_affix=kwset_affix,
+    #            custom_kwlist=args.custom_kwlist)
+    kws(args.test_lang, env,
+        exp_affix=args.exp_affix,
+        kwset_affix=kwset_affix)
 
     # Computing the word error rate (WER) can be useful for debugging to see if
     # the word lattices generated in decoding are what is causing problems.
