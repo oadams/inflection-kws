@@ -113,7 +113,8 @@ def load_unimorph_inflections(iso_code, unimorph_dir=Path("../../raw/unimorph"))
 def kwlist_xml(babel_code: str,
                paradigms: Dict[str, Iterable[str]],
                ecf_fn: Union[str,Path],
-               version_str: str) -> str:
+               version_str: str,
+               kwset_spurious) -> str:
     """ Writes a Keyword list XML file of words to search for.
 
         paradigms is a dictionary mapping from a lemma to a paradigm
@@ -135,16 +136,37 @@ def kwlist_xml(babel_code: str,
                     f" compareNormalize=\"\""
                     f" version=\"{version_str}\">")
 
-    # Write all the inflected forms as keywords.
-    for paradigm_id, lemma in enumerate(sorted(list(paradigms.keys()))):
-        for inflection_id, inflection in enumerate(sorted(list(paradigms[lemma]))):
-            kwid = f"KW-{paradigm_id}-{inflection_id}"
-            xml_tag = (f"<kw kwid=\"{kwid}\">\n\t"
-                       f"<kwtext>{inflection}</kwtext>\n"
-                       "</kw>")
-            xml_tags.append(xml_tag)
-
-    logging.info(f"Number of inflections in KW list: {len(xml_tags) - 1}")
+    if kwset_spurious:
+        # Write all the inflected forms as kwtext variations on a keyword.
+        for paradigm_id, lemma in enumerate(sorted(list(paradigms.keys()))):
+            #print(f"paradigm_id {paradigm_id}, lemma {lemma}")
+            #print(f"inflection-set size: {len(paradigms[lemma])}")
+            kwid = f"KW-{paradigm_id}"
+            xml_tags.append(f"<kw kwid=\"{kwid}\">")
+            for inflection_id, inflection in enumerate(sorted(list(paradigms[lemma]))):
+                xml_tags.append(f"<kwtext>{inflection}</kwtext>")
+            xml_tags.append("</kw>")
+            #input()
+    else:
+        # Write all the inflected forms as individual KW words. Why this
+        # difference? When we don't have a bunch of spurious forms, in the KW
+        # list, that's when it's computationally feasible to create a hitlist
+        # using KWSEval which takes in an RTTM and this KW list XML file and
+        # essentially computes the intersection of those (because alignment is
+        # involved, it's cubic in the number of keywords). However, KWSEval
+        # gets angry at multiple kwtext tags per kw tag, so we need to format
+        # the XML differently depending on whether we're taking the approach
+        # that generates the hitlist or not. I know, it's confusing AF.
+        for paradigm_id, lemma in enumerate(sorted(list(paradigms.keys()))):
+            #print(f"paradigm_id {paradigm_id}, lemma {lemma}")
+            #print(f"inflection-set size: {len(paradigms[lemma])}")
+            for inflection_id, inflection in enumerate(sorted(list(paradigms[lemma]))):
+                #print(f"\tinflection {inflection}")
+                kwid = f"KW-{paradigm_id}-{inflection_id}"
+                xml_tags.append(f"<kw kwid=\"{kwid}\">")
+                xml_tags.append(f"<kwtext>{inflection}</kwtext>")
+                xml_tags.append("</kw>")
+            #input()
 
     xml_tags.append("</kwlist>")
     return "\n".join(xml_tags)
@@ -152,7 +174,7 @@ def kwlist_xml(babel_code: str,
 def create_eval_paradigms(babel_code, inflection_method,
                           write_to_fn=False,
                           k=None,
-                          kwset_spurious=True):
+                          kwset_spurious=True, kwset_affix=""):
     """ Constructs a KW test set.
 
         The approach taken is to consider Unimorph paradigms and inflections
@@ -279,15 +301,12 @@ def create_eval_paradigms(babel_code, inflection_method,
         eval_lexemes = filtered_lexemes
 
     # Write to a KW list file.
-    if kwset_spurious:
-        kwlist_dir = Path(f"kwlists/k={k}")
-    else:
-        kwlist_dir = Path("kwlists/")
-    if not kwlist_dir.is_dir():
-        kwlist_dir.mkdir()
+    kwlist_dir = Path(f"kwlists/{kwset_affix}")
+    kwlist_dir.mkdir(parents=True, exist_ok=True)
     if write_to_fn:
         kwlist_path = kwlist_dir / f"{babel_code}.kwlist.xml"
         with open(kwlist_path, "w") as f:
-            print(kwlist_xml(babel_code, eval_lexemes, ecf_fn, version_str),
+            print(kwlist_xml(babel_code, eval_lexemes, ecf_fn, version_str,
+                             kwset_spurious),
                   file=f)
     return eval_lexemes

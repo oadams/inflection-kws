@@ -606,8 +606,9 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
         # I should instead be calling kws_eval.test_set() or whatever the
         # function is called.
         if kwset_spurious:
-            kwlist_file = f"kwlists/k={k}/{lang}.kwlist.xml"
+            kwlist_file = f"kwlists/{kwset_affix}/{lang}.kwlist.xml"
         else:
+            # TODO THIS needs to change.
             kwlist_file = f"kwlists/{lang}.kwlist.xml"
         out_dir = f"{data_dir}/kwset_custom{kwset_affix}"
     else:
@@ -622,11 +623,23 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
 
     logging.info("Calling local/search/setup.sh")
     # TODO this will also have to generalize to multiple kws sets too.
-    args = ["local/search/setup.sh",
-            ecf_file,
-            # NOTE Going to use the previously generated hitlist
-            #rttm_file,
-            kwlist_file, data_dir, lang_dir, out_dir]
+    if kwset_spurious:
+        # Then we don't pass the RTTM file to setup.sh. Alignment would take
+        # too long for a bunch of words we know aren't actually in the RTTM.
+        # That is, we can just use the RTTM that was generated when this
+        # function was called without kwset_spurious.
+        args = ["local/search/setup.sh",
+                ecf_file,
+                # NOTE Going to use the previously generated hitlist
+                kwlist_file, data_dir, lang_dir, out_dir]
+    else:
+        # Then we pass the RTTM file to setup.sh so that alignment and the
+        # hitlist can be generated.
+        args = ["local/search/setup.sh",
+                ecf_file,
+                # NOTE Going to use the previously generated hitlist
+                rttm_file,
+                kwlist_file, data_dir, lang_dir, out_dir]
     run(args, check=True)
 
     logging.info("Calling local/search/compile_keywords.sh")
@@ -721,13 +734,22 @@ if __name__ == "__main__":
     # Prepare ivectors for the test language.
     #prepare_test_ivectors(args.test_lang, args, env)
 
-    """
+    exp_prefix = "new-tur"
+    exp_affix = f"_{exp_prefix}{args.exp_affix}"
+
+    kwset_affix = ""
+    if args.kwset_spurious:
+        kwset_affix = f"_{exp_prefix}_kwset-spurious_k={args.k}"
+    else:
+        kwset_affix = f"_{exp_prefix}_k={args.k}"
+
     # Establish the KW eval list.
     eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang,
                                                     args.inflection_method,
                                                     k=args.k,
                                                     kwset_spurious=args.kwset_spurious,
-                                                    write_to_fn=True)
+                                                    write_to_fn=True,
+                                                    kwset_affix=kwset_affix)
 
     if args.rm_missing or args.add_spurious or args.lm_train_text:
         # Read in the inflections that were hypothesized. We use these to
@@ -743,7 +765,7 @@ if __name__ == "__main__":
                           add_spurious=args.add_spurious,
                           lm_train_text=args.lm_train_text,
                           rules_g2p=args.rules_g2p,
-                          exp_affix=args.exp_affix)
+                          exp_affix=exp_affix)
 
     # TODO Perhaps break this second decoding part off into a separate stage
     # which gets determined by a command line argument. For example, run.py
@@ -754,23 +776,23 @@ if __name__ == "__main__":
 
     ##### Preparing decoding #####
     # Make HCLG.fst.
-    mkgraph(args.test_lang, exp_affix=args.exp_affix)
+    mkgraph(args.test_lang, exp_affix=exp_affix)
 
-    decode(args.test_lang, args, env, exp_affix=args.exp_affix)
-    """
+    decode(args.test_lang, args, env, exp_affix=exp_affix)
 
-    if args.kwset_spurious:
-        kwset_affix = f"_k={args.k}"
     ##### KWS #####
-    #prepare_kws(args.test_lang,
-    #            exp_affix=args.exp_affix,
-    #            kwset_spurious=args.kwset_spurious,
-    #            k=args.k,
-    #            kwset_affix=kwset_affix,
-    #            custom_kwlist=args.custom_kwlist)
-    kws(args.test_lang, env,
-        exp_affix=args.exp_affix,
-        kwset_affix=kwset_affix)
+    prepare_kws(args.test_lang,
+                exp_affix=exp_affix,
+                kwset_spurious=args.kwset_spurious,
+                k=args.k,
+                kwset_affix=kwset_affix,
+                custom_kwlist=args.custom_kwlist)
+    #kws(args.test_lang, env,
+    #    exp_affix=exp_affix,
+    #    kwset_affix=kwset_affix)
+
+    #score_kws(args.test_lang,
+    #          exp_affix=exp_affix, kwset_affix=kwset_affix)
 
     # Computing the word error rate (WER) can be useful for debugging to see if
     # the word lattices generated in decoding are what is causing problems.

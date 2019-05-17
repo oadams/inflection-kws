@@ -52,7 +52,14 @@ def load_hypotheses(iso_code, k=None, method="ensemble", pos_sets=["nouns"],
                     # is inverted for these languages specifically.
                     bundle, lemma = fields[0].split("+")
                 else:
-                    lemma, bundle = fields[0].split("+")
+                    try:
+                        lemma, bundle = fields[0].split("+")
+                    except ValueError as e:
+                        if len(fields[0]) == 4:
+                            lemma = fields[0]
+                            print(f"fields: {fields}")
+                        raise e
+
                 inflection_hyp = fields[1]
                 if inflection_hyp == "":
                     # We don't use empty inflections.
