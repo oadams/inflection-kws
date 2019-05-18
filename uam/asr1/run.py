@@ -624,6 +624,13 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
     logging.info("Calling local/search/setup.sh")
     # TODO this will also have to generalize to multiple kws sets too.
     if kwset_spurious:
+        # First we call this function again to setup for the non kwset_spurious
+        # version of this code, purely so we can get the hitlist in the timely
+        # manner. Then, we run the setup for kwset_spurious, but without
+        # generating the hitlist.
+        prepare_kws(lang, custom_kwlist=custom_kwlist, exp_affix=exp_affix,
+                    kwset_affix=f"{kwset_affix}.tmp-hitlist-gen",
+                    kwset_spurious=False, k=k)
         # Then we don't pass the RTTM file to setup.sh. Alignment would take
         # too long for a bunch of words we know aren't actually in the RTTM.
         # That is, we can just use the RTTM that was generated when this
@@ -705,6 +712,49 @@ def kws(lang, env, re_index=True, custom_kwlist=True,
             lang_dir, data_dir, decode_dir]
     run(args, check=True)
 
+def score_kws(lang, exp_affix="", kwset_affix=""):
+
+    test_set = f"{lang}_test"
+
+    #hitlist_dir = Path("/export/b13/oadams/kws/uam/asr1/data/105_test/data/dev10h.pem/kwset_custom_k=10")
+    #hitlist_dir = Path("/export/b13/oadams/kws/uam/asr1/data/105_test/data/dev10h.pem/kwset_custom_inflection-method=ensemble_rm-missing_add-spurious_k=20")
+    #hitlist_dir = Path("/export/b13/oadams/kws/uam/asr1/data/105_test/data/dev10h.pem/kwset_custom_new-tur_k=1")
+
+    # TODO Needs a single point of control with the same variables in kws()
+    lang_dir = f"data/{test_set}/data/lang_universal{exp_affix}"
+    data_dir = f"data/{test_set}/data/dev10h.pem"
+    hitlist_dir = Path(f"{data_dir}/kwset_custom{kwset_affix}.tmp-hitlist-gen")
+
+    # Remove the inflection part of the ID from the reference hitlist
+    with open(hitlist_dir / "hitlist") as in_f, open(hitlist_dir / "hitlist-lexeme", "w") as out_f:
+        for line in in_f:
+            kwid, utt_id, start_frame, end_frame, score = line.split()
+            kwid = "-".join(kwid.split("-")[:2])
+            print(" ".join([kwid, utt_id, start_frame, end_frame, score]), file=out_f)
+
+    decode_dir =  f"exp/chain_cleaned/tdnn_sp/{test_set}_decode{exp_affix}"
+
+    kw_dir = Path(f"{decode_dir}/kwset_custom{kwset_affix}")
+    kw_12_dir = Path(str(kw_dir) + "_12")
+    # Remove the inflection part of the ID from the hypothesis results
+    with open(kw_12_dir / "results") as in_f, open(kw_12_dir / "results-lexeme", "w") as out_f:
+        for line in in_f:
+            kwid, utt_id, start_frame, end_frame, score = line.split()
+            kwid = "-".join(kwid.split("-")[:2])
+            print(" ".join([kwid, utt_id, start_frame, end_frame, score]), file=out_f)
+
+    extraid = f"custom{kwset_affix}"
+
+    cmd = "utils/queue.pl --mem 10G"
+    args = ["./local/search/score.sh",
+            "--cmd", cmd,
+            "--min-lmwt", "12",
+            "--max-lmwt", "12",
+            "--extraid", extraid, # Flag to indicate custom KW list.
+            "--hitlistdir", str(hitlist_dir),
+            lang_dir, data_dir, kw_dir]
+    run(args, check=True)
+
 if __name__ == "__main__":
     args = get_args()
     logging.basicConfig(level=args.logging_level)
@@ -734,7 +784,7 @@ if __name__ == "__main__":
     # Prepare ivectors for the test language.
     #prepare_test_ivectors(args.test_lang, args, env)
 
-    exp_prefix = "new-tur"
+    exp_prefix = "new-eval"
     exp_affix = f"_{exp_prefix}{args.exp_affix}"
 
     kwset_affix = ""
@@ -743,6 +793,7 @@ if __name__ == "__main__":
     else:
         kwset_affix = f"_{exp_prefix}_k={args.k}"
 
+    """
     # Establish the KW eval list.
     eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang,
                                                     args.inflection_method,
@@ -779,6 +830,7 @@ if __name__ == "__main__":
     mkgraph(args.test_lang, exp_affix=exp_affix)
 
     decode(args.test_lang, args, env, exp_affix=exp_affix)
+    """
 
     ##### KWS #####
     prepare_kws(args.test_lang,
@@ -787,12 +839,13 @@ if __name__ == "__main__":
                 k=args.k,
                 kwset_affix=kwset_affix,
                 custom_kwlist=args.custom_kwlist)
-    #kws(args.test_lang, env,
-    #    exp_affix=exp_affix,
-    #    kwset_affix=kwset_affix)
 
-    #score_kws(args.test_lang,
-    #          exp_affix=exp_affix, kwset_affix=kwset_affix)
+    kws(args.test_lang, env,
+        exp_affix=exp_affix,
+        kwset_affix=kwset_affix)
+
+    score_kws(args.test_lang,
+              exp_affix=exp_affix, kwset_affix=kwset_affix)
 
     # Computing the word error rate (WER) can be useful for debugging to see if
     # the word lattices generated in decoding are what is causing problems.

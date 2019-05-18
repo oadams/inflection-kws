@@ -12,6 +12,7 @@ cmd=run.pl
 stage=0
 ntrue_from=
 # End configuration section.
+hitlistdir=
 
 help_message="$0: score the kwslist using the F4DE scorer from NIST
   Example:
@@ -57,10 +58,10 @@ if [ $stage -le 0 ] ; then
       # has a larger dynamic range
       $cmd NTRUE=1:21 $kwsoutputdir/log/score.${LMWT}.NTRUE.log \
         ntrue=\$\(perl -e 'print 1+(NTRUE-1)/5.0' \) '&&' \
-        cat ${kwsoutputdir}_$LMWT/results \|\
+        cat ${kwsoutputdir}_$LMWT/results-lexeme \|\
           local/search/normalize_results_kst.pl --trials $trials --ntrue-scale \$ntrue \|\
           local/search/filter_kws_results.pl --probs --nbest 200   \|\
-          compute-atwv $trials ark,t:$kwsdatadir/hitlist ark:- \
+          compute-atwv $trials ark,t:$hitlistdir/hitlist-lexeme ark:- \
           \> ${kwsoutputdir}_$LMWT/scoring/score.NTRUE.txt
 
       ntrue=$(grep ATWV ${kwsoutputdir}_$LMWT/scoring/score.*.txt | \
@@ -84,15 +85,16 @@ if [ $stage -le 0 ] ; then
   fi
 fi
 
+echo "compute-atwv"
 if [ $stage -le 1 ] ; then
   $cmd LMWT=$min_lmwt:$max_lmwt $kwsoutputdir/log/normalize.LMWT.log \
-    cat ${kwsoutputdir}_LMWT/results \|\
+    cat ${kwsoutputdir}_LMWT/results-lexeme \|\
       local/search/normalize_results_kst.pl --trials $trials --ntrue-scale \$\(cat ${kwsoutputdir}_LMWT/details/ntrue\)\
-      \> ${kwsoutputdir}_LMWT/details/results
+      \> ${kwsoutputdir}_LMWT/details/results-lexeme
 
   $cmd LMWT=$min_lmwt:$max_lmwt $kwsoutputdir/log/score.final.LMWT.log \
-    cat ${kwsoutputdir}_LMWT/details/results \|\
-      compute-atwv $trials ark,t:$kwsdatadir/hitlist ark:- \
+    cat ${kwsoutputdir}_LMWT/details/results-lexeme \|\
+      compute-atwv $trials ark,t:$hitlistdir/hitlist-lexeme ark:- \
       ${kwsoutputdir}_LMWT/details/alignment.csv \> ${kwsoutputdir}_LMWT/details/score.txt  '&&' \
     cp ${kwsoutputdir}_LMWT/details/score.txt ${kwsoutputdir}_LMWT/score.txt
 
@@ -101,6 +103,8 @@ if [ $stage -le 1 ] ; then
       perl local/search/per_category_stats.pl --sweep-step 0.005  $trials \
       $kwsdatadir/categories \> ${kwsoutputdir}_LMWT/details/per-category-score.txt
 fi
+
+exit
 
 if [ $stage -le 2 ]; then
 if [ -f $kwsdatadir/f4de_attribs ] ; then
@@ -118,7 +122,7 @@ if [ -f $kwsdatadir/f4de_attribs ] ; then
     local/search/annotate_kwlist.pl $kwsdatadir/categories \> ${kwsoutputdir}_LMWT/f4de/kwlist.xml
 
   $cmd LMWT=$min_lmwt:$max_lmwt $kwsoutputdir/log/f4de_write_kwslist.LMWT.log \
-    cat ${kwsoutputdir}_LMWT/details/results \| \
+    cat ${kwsoutputdir}_LMWT/details/results-lexeme \| \
       utils/int2sym.pl -f 2 $kwsdatadir/utt.map \| \
       local/search/utt_to_files.pl --flen $flen $kwsdatadir/../segments \|\
       local/search/write_kwslist.pl --flen $flen --language $language \
