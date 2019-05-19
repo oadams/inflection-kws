@@ -55,9 +55,10 @@ def load_hypotheses(iso_code, k=None, method="ensemble", pos_sets=["nouns"],
                     try:
                         lemma, bundle = fields[0].split("+")
                     except ValueError as e:
+                        logging.info(f"fields: {fields}")
                         if len(fields[0]) == 4:
                             lemma = fields[0]
-                            print(f"fields: {fields}")
+                        continue
                         raise e
 
                 inflection_hyp = fields[1]
