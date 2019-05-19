@@ -567,7 +567,7 @@ def wer_score(lang, env, exp_affix=""):
 
 # TODO clarify how this differentiates from kws_eval.create_eval_paradigms.
 def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
-                kwset_spurious=True, k=None):
+                kwset_spurious=True, k=None, inflection_method=None):
     """ Establish KWS lists and ground truth.
 
         This probably should only have to change when the KW list and ground
@@ -605,11 +605,7 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
         # TODO Don't hardcode the paths. Or at least hardcode good paths.
         # I should instead be calling kws_eval.test_set() or whatever the
         # function is called.
-        if kwset_spurious:
-            kwlist_file = f"kwlists/{kwset_affix}/{lang}.kwlist.xml"
-        else:
-            # TODO THIS needs to change.
-            kwlist_file = f"kwlists/{lang}.kwlist.xml"
+        kwlist_file = f"kwlists/{kwset_affix}/{lang}.kwlist.xml"
         out_dir = f"{data_dir}/kwset_custom{kwset_affix}"
     else:
         # NOTE Assume the KW list files are in the same directory as the
@@ -628,8 +624,19 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
         # version of this code, purely so we can get the hitlist in the timely
         # manner. Then, we run the setup for kwset_spurious, but without
         # generating the hitlist.
+
+        tmp_kwset_affix = f"{kwset_affix}.tmp-hitlist-gen"
+        # Establish the KW eval list.
+        eval_paradigms = kws_eval.create_eval_paradigms(
+                lang,
+                k=k,
+                kwset_spurious=False,
+                write_to_fn=True,
+                kwset_affix=tmp_kwset_affix,
+                inflection_method=inflection_method
+                )
         prepare_kws(lang, custom_kwlist=custom_kwlist, exp_affix=exp_affix,
-                    kwset_affix=f"{kwset_affix}.tmp-hitlist-gen",
+                    kwset_affix=tmp_kwset_affix,
                     kwset_spurious=False, k=k)
         # Then we don't pass the RTTM file to setup.sh. Alignment would take
         # too long for a bunch of words we know aren't actually in the RTTM.
@@ -793,7 +800,6 @@ if __name__ == "__main__":
     else:
         kwset_affix = f"_{exp_prefix}_k={args.k}"
 
-    """
     # Establish the KW eval list.
     eval_paradigms = kws_eval.create_eval_paradigms(args.test_lang,
                                                     args.inflection_method,
@@ -801,6 +807,7 @@ if __name__ == "__main__":
                                                     kwset_spurious=args.kwset_spurious,
                                                     write_to_fn=True,
                                                     kwset_affix=kwset_affix)
+    """
 
     if args.rm_missing or args.add_spurious or args.lm_train_text:
         # Read in the inflections that were hypothesized. We use these to
@@ -838,7 +845,8 @@ if __name__ == "__main__":
                 kwset_spurious=args.kwset_spurious,
                 k=args.k,
                 kwset_affix=kwset_affix,
-                custom_kwlist=args.custom_kwlist)
+                custom_kwlist=args.custom_kwlist,
+                inflection_method=args.inflection_method)
 
     kws(args.test_lang, env,
         exp_affix=exp_affix,
