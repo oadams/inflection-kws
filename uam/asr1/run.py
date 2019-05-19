@@ -719,7 +719,7 @@ def kws(lang, env, re_index=True, custom_kwlist=True,
             lang_dir, data_dir, decode_dir]
     run(args, check=True)
 
-def score_kws(lang, exp_affix="", kwset_affix=""):
+def score_kws(lang, exp_affix="", kwset_affix="", kwset_spurious=False):
 
     test_set = f"{lang}_test"
 
@@ -730,7 +730,11 @@ def score_kws(lang, exp_affix="", kwset_affix=""):
     # TODO Needs a single point of control with the same variables in kws()
     lang_dir = f"data/{test_set}/data/lang_universal{exp_affix}"
     data_dir = f"data/{test_set}/data/dev10h.pem"
-    hitlist_dir = Path(f"{data_dir}/kwset_custom{kwset_affix}.tmp-hitlist-gen")
+    if kwset_spurious:
+        hitlist_dir = Path(f"{data_dir}/kwset_custom{kwset_affix}.tmp-hitlist-gen")
+    else:
+        hitlist_dir = Path(f"{data_dir}/kwset_custom{kwset_affix}")
+
 
     # Remove the inflection part of the ID from the reference hitlist
     with open(hitlist_dir / "hitlist") as in_f, open(hitlist_dir / "hitlist-lexeme", "w") as out_f:
@@ -807,23 +811,22 @@ if __name__ == "__main__":
                                                     kwset_spurious=args.kwset_spurious,
                                                     write_to_fn=True,
                                                     kwset_affix=kwset_affix)
-    """
 
-    if args.rm_missing or args.add_spurious or args.lm_train_text:
-        # Read in the inflections that were hypothesized. We use these to
-        # adjust the lexicon that is used for decoding accordingly.
-        # TODO generalize this beyond DTL
-        hyp_paradigms = inflections.load_hypotheses(babel_iso.babel2iso[args.test_lang],
-                                                    k=args.k,
-                                                    method=args.inflection_method)
+    #if args.rm_missing or args.add_spurious or args.lm_train_text:
+    # Read in the inflections that were hypothesized. We use these to
+    # adjust the lexicon that is used for decoding accordingly.
+    # TODO generalize this beyond DTL
+    hyp_paradigms = inflections.load_hypotheses(babel_iso.babel2iso[args.test_lang],
+                                                k=args.k,
+                                                method=args.inflection_method)
 
-        # Now prepare the lang directory, with the lexicon and LM.
-        prepare_test_lang(args.test_lang, hyp_paradigms, eval_paradigms,
-                          rm_missing=args.rm_missing,
-                          add_spurious=args.add_spurious,
-                          lm_train_text=args.lm_train_text,
-                          rules_g2p=args.rules_g2p,
-                          exp_affix=exp_affix)
+    # Now prepare the lang directory, with the lexicon and LM.
+    prepare_test_lang(args.test_lang, hyp_paradigms, eval_paradigms,
+                      rm_missing=args.rm_missing,
+                      add_spurious=args.add_spurious,
+                      lm_train_text=args.lm_train_text,
+                      rules_g2p=args.rules_g2p,
+                      exp_affix=exp_affix)
 
     # TODO Perhaps break this second decoding part off into a separate stage
     # which gets determined by a command line argument. For example, run.py
@@ -837,7 +840,7 @@ if __name__ == "__main__":
     mkgraph(args.test_lang, exp_affix=exp_affix)
 
     decode(args.test_lang, args, env, exp_affix=exp_affix)
-    """
+
 
     ##### KWS #####
     prepare_kws(args.test_lang,
@@ -853,7 +856,8 @@ if __name__ == "__main__":
         kwset_affix=kwset_affix)
 
     score_kws(args.test_lang,
-              exp_affix=exp_affix, kwset_affix=kwset_affix)
+              exp_affix=exp_affix, kwset_affix=kwset_affix,
+              kwset_spurious=args.kwset_spurious)
 
     # Computing the word error rate (WER) can be useful for debugging to see if
     # the word lattices generated in decoding are what is causing problems.
