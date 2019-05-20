@@ -326,8 +326,10 @@ def prepare_test_lang(babel_code,
             for line in in_f:
                 if line != "\n": # If it's not an empty line
                     print("STUB_UTT_ID ", end="", file=out_f)
-                    print(line.translate(str.maketrans('', '', string.punctuation)),
-                          file=out_f, end="")
+                    out_line = line.translate(
+                                    str.maketrans('', '', string.punctuation))
+                    out_line = out_line.lower()
+                    print(out_line, file=out_f, end="")
 
     else:
         # If training text for the language model hasn't been specified, then
