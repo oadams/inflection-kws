@@ -5,6 +5,33 @@ from pathlib import Path
 
 HYPS_DIR = Path(f"../../G2PHypotheses/")
 
+def load_unimorph_inflections(iso_code, pos_sets, unimorph_dir=Path("../../raw/unimorph")):
+    """ Given an ISO 639-3 language code, returns a mapping from lemmas of that
+        language to list of tuples of <inflection, unimorph bundle>.
+    """
+
+    logging.info(f"Loading inflections for {iso_code}")
+
+    inflections = dict()
+    lang_path = unimorph_dir / f"{iso_code}/{iso_code}"
+    lemma = None
+    with open(lang_path) as f:
+        for line in f:
+            sp = line.split("\t")
+            if len(sp) == 3:
+                lemma, inflection, bundle = sp
+                if "nouns" in pos_sets:
+                    if bundle.split(";")[0] != "N":
+                        continue
+                if lemma in inflections:
+                    if bundle in inflections[lemma]:
+                        inflections[lemma][bundle].append(inflection)
+                    else:
+                        inflections[lemma][bundle] = [inflection]
+                else:
+                    inflections[lemma] = {bundle: [inflection]}
+    return inflections
+
 def load_hypotheses(iso_code, k=None, method="ensemble", pos_sets=["nouns"],
                     hyps_dir=HYPS_DIR):
     """ Loads hypothesized inflections
@@ -31,6 +58,8 @@ def load_hypotheses(iso_code, k=None, method="ensemble", pos_sets=["nouns"],
         suffix = "Ens"
     elif method == "RNN":
         suffix = "RNN"
+    elif method == "unimorph":
+        return load_unimorph_inflections(iso_code, pos_sets)
     else:
         raise ValueError(f"Invalid method {method}")
 

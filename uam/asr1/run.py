@@ -256,10 +256,12 @@ def prepare_test_lang(babel_code,
         for lemma in eval_paradigms:
             for bundle in hyp_paradigms[lemma]:
                 for ortho in hyp_paradigms[lemma][bundle]:
-                    if ortho not in lex_forms and ortho not in added:
-                        added.add(ortho)
-                        # TODO Generalize beyond rule based G2P.
-                        words_to_g2p.append(ortho)
+                    for tok in ortho.split():
+                        lower_tok = tok.lower()
+                        if lower_tok not in lex_forms and lower_tok not in added:
+                            added.add(lower_tok)
+                            # TODO Generalize beyond rule based G2P.
+                            words_to_g2p.append(lower_tok)
 
         g2p_pairs = []
         if rules_g2p:
@@ -626,9 +628,7 @@ def prepare_kws(lang, custom_kwlist=True, exp_affix="", kwset_affix="",
         # version of this code, purely so we can get the hitlist in the timely
         # manner. Then, we run the setup for kwset_spurious, but without
         # generating the hitlist.
-
         tmp_kwset_affix = f"{kwset_affix}.tmp-hitlist-gen"
-        # Establish the KW eval list.
         eval_paradigms = kws_eval.create_eval_paradigms(
                 lang,
                 k=k,
@@ -797,7 +797,7 @@ if __name__ == "__main__":
     # Prepare ivectors for the test language.
     #prepare_test_ivectors(args.test_lang, args, env)
 
-    exp_prefix = "new-eval"
+    exp_prefix = "new-eval-unimorph"
     exp_affix = f"_{exp_prefix}{args.exp_affix}"
 
     kwset_affix = ""

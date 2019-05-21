@@ -224,6 +224,7 @@ def create_eval_paradigms(babel_code, inflection_method,
 
     covered_lexemes = dict()
     for lemma in unimorph_lexemes:
+        # TODO consider casing mismatch
         lexeme_covered = True
         seen_inflections = []
         for inflection, bundle in unimorph_lexemes[lemma]:
