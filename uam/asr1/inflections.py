@@ -5,6 +5,8 @@ from pathlib import Path
 
 HYPS_DIR = Path(f"../../G2PHypotheses/")
 
+#def load_lemmas_only(iso_code, pos_sets, 
+
 def load_unimorph_inflections(iso_code, pos_sets, unimorph_dir=Path("../../raw/unimorph")):
     """ Given an ISO 639-3 language code, returns a mapping from lemmas of that
         language to list of tuples of <inflection, unimorph bundle>.

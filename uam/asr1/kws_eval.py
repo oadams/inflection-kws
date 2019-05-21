@@ -196,6 +196,10 @@ def create_eval_paradigms(babel_code, inflection_method,
               though. We have to be careful with this though, because we'll
               need to make sure the KWLists are the same between models.
     """
+    # TODO Be careful not to let the evaluation set change when you use a
+    # different inflection method. A set of lemmas should be specified manually
+    # or based on another set. Currently this is hardcoded in the dtl_hyps
+    # variable below (search for dtl_hyps).
 
     # Find all words that occur in the Babel dev10h set (ie. forms that we
     # know actually occur in the speech)
@@ -218,9 +222,11 @@ def create_eval_paradigms(babel_code, inflection_method,
     # Now load DTL hyps so we can additionally constrain based on Garrett's DTL
     # set. By this I mean the lemmas that were being used to generate
     # inflections, not the inflections themselves.
-    dtl_hyps = inflections.load_hypotheses(babel2iso[babel_code],
+    hyps = inflections.load_hypotheses(babel2iso[babel_code],
                                            method=inflection_method, k=k)
-    logging.info(f"{inflection_method} lemmas: {len(set(dtl_hyps.keys()))}")
+    dtl_hyps = inflections.load_hypotheses(babel2iso[babel_code],
+                                           method="ensemble", k=k)
+    logging.info(f"{inflection_method} lemmas: {len(set(hyps.keys()))}")
 
     covered_lexemes = dict()
     for lemma in unimorph_lexemes:
@@ -236,7 +242,7 @@ def create_eval_paradigms(babel_code, inflection_method,
                     lexeme_covered = False
                     break
                 seen_inflections.append(inflection)
-        if lexeme_covered and lemma in dtl_hyps:
+        if lexeme_covered and lemma in hyps and lemma in dtl_hyps:
             # TODO Maybe uncomment the two lines below. We don't really want to
             # report stats on lexemes with no inflections. Note that it
             # shouldn't affect KWS scores, since we just use whatever
@@ -295,9 +301,9 @@ def create_eval_paradigms(babel_code, inflection_method,
     if kwset_spurious:
         for lemma in filtered_lexemes:
             eval_lexemes[lemma] = set(filtered_lexemes[lemma])
-            for bundle in dtl_hyps[lemma]:
+            for bundle in hyps[lemma]:
                 eval_lexemes[lemma] = eval_lexemes[lemma].union(
-                        set(dtl_hyps[lemma][bundle]))
+                        set(hyps[lemma][bundle]))
     else:
         eval_lexemes = filtered_lexemes
 
