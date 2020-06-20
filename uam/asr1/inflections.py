@@ -3,6 +3,8 @@
 import logging
 from pathlib import Path
 
+# NOTE this G2PHypotheses directory actually contains inflections and should be
+# renamed.
 HYPS_DIR = Path(f"../../G2PHypotheses/")
 
 def load_lemmas_only(iso_code, pos_sets, unimorph_dir=Path("../../raw/unimorph")):
