@@ -199,7 +199,9 @@ def create_eval_paradigms(babel_code, inflection_method,
     # TODO Be careful not to let the evaluation set change when you use a
     # different inflection method. A set of lemmas should be specified manually
     # or based on another set. Currently this is hardcoded in the dtl_hyps
-    # variable below (search for dtl_hyps).
+    # variable below (search for dtl_hyps). Basically just be extra careful and
+    # review this code, because we've made assumptions about the dtl_hyps'
+    # lemmas being a subset of what's in unimorph etc.
 
     # Find all words that occur in the Babel dev10h set (ie. forms that we
     # know actually occur in the speech)

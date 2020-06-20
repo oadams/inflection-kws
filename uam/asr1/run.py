@@ -797,7 +797,7 @@ if __name__ == "__main__":
     # Prepare ivectors for the test language.
     #prepare_test_ivectors(args.test_lang, args, env)
 
-    exp_prefix = "new-eval-unimorph2"
+    exp_prefix = "new-eval-unimorph3"
     exp_affix = f"_{exp_prefix}{args.exp_affix}"
 
     kwset_affix = ""
